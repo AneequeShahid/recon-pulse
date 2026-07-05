@@ -2,18 +2,18 @@ import httpx
 from app.models import TechStack
 
 async def fetch_tech_stack(url: str) -> TechStack:
-    technologies = []
-    categories = {}
-    
-    def add_tech(name: str, category: str):
-        if name not in technologies:
-            technologies.append(name)
-        if category not in categories:
-            categories[category] = []
-        if name not in categories[category]:
-            categories[category].append(name)
-
     try:
+        technologies = []
+        categories = {}
+        
+        def add_tech(name: str, category: str):
+            if name not in technologies:
+                technologies.append(name)
+            if category not in categories:
+                categories[category] = []
+            if name not in categories[category]:
+                categories[category].append(name)
+
         async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
             res = await client.get(url)
             html = res.text.lower()
@@ -74,9 +74,9 @@ async def fetch_tech_stack(url: str) -> TechStack:
             if "font-awesome" in html or "font-awesome.min.css" in html:
                 add_tech("Font Awesome", "Icon Font")
 
-            return TechStack(
-                technologies=technologies,
-                categories=categories
-            )
+        return TechStack(
+            technologies=technologies,
+            categories=categories
+        )
     except Exception:
         return TechStack()

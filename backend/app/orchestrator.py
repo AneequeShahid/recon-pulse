@@ -11,22 +11,19 @@ from app.services import (
 from app.models import ReportData
 from app.database import save_report, update_report
 
-async def run_report(url: str) -> str:
-    report_id = str(uuid.uuid4())[:8]
-    
+async def run_report(report_id: str, url: str) -> None:
     parsed = urlparse(url)
     domain = parsed.netloc.replace("www.", "")
     if not domain:
         domain = parsed.path.replace("www.", "").split("/")[0]
 
-    # Initialize and save the initial pending report record
+    # Instantiate report model structure for updating results
     report = ReportData(
         id=report_id,
         url=url,
         created_at=datetime.now(),
         status="pending"
     )
-    await save_report(report)
 
     # Fire all scanner services in parallel (all configured with a 10s maximum timeout)
     results = await asyncio.gather(
@@ -73,4 +70,3 @@ async def run_report(url: str) -> str:
 
     # Update database record
     await update_report(report)
-    return report_id

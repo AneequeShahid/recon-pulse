@@ -24,6 +24,7 @@ app.add_middleware(
 
 # Include endpoint routes
 app.include_router(report.router, prefix="/api")
+app.include_router(report.root_router)
 app.include_router(health.router, prefix="/api")
 
 @app.get("/")

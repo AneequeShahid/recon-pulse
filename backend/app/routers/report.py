@@ -7,6 +7,7 @@ from app.database import get_report, save_report
 from app.cache import get_cached
 
 router = APIRouter()
+root_router = APIRouter()
 
 @router.post("/report")
 async def create_report(
@@ -46,3 +47,7 @@ async def get_report_by_id(report_id: str) -> ReportData:
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     return report
+
+@root_router.get("/r/{report_id}")
+async def get_report_by_id_root(report_id: str) -> ReportData:
+    return await get_report_by_id(report_id)

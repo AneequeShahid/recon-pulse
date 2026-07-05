@@ -196,7 +196,8 @@ export default function App() {
     if (!urlInput) return;
     setSubmitting(true);
     try {
-      const { data } = await axios.post('http://localhost:8000/api/report', { url: urlInput });
+      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const { data } = await axios.post(`${apiBaseUrl}/api/report`, { url: urlInput });
       setActiveReportId(data.report_id);
       window.history.pushState(null, '', `/r/${data.report_id}`);
     } catch (err) {

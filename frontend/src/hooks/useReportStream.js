@@ -14,10 +14,12 @@ export function useReportStream(reportId) {
       return;
     }
 
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
     // Immediately fetch once
     const fetchReport = async () => {
       try {
-        const { data } = await axios.get(`http://localhost:8000/api/report/${reportId}`);
+        const { data } = await axios.get(`${API_BASE_URL}/api/report/${reportId}`);
         setReport(data);
         setStatus(data.status);
         if (data.status === 'complete' || data.status === 'error') {
@@ -33,7 +35,7 @@ export function useReportStream(reportId) {
 
     const poll = setInterval(async () => {
       try {
-        const { data } = await axios.get(`http://localhost:8000/api/report/${reportId}`);
+        const { data } = await axios.get(`${API_BASE_URL}/api/report/${reportId}`);
         setReport(data);
         setStatus(data.status);
         if (data.status === 'complete' || data.status === 'error') {

@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PAGESPEED_API_KEY=${PAGESPEED_API_KEY}
+      - GNEWS_API_KEY=${GNEWS_API_KEY}
+      - GITHUB_API_KEY=${GITHUB_API_KEY}
+      - PUPPETEER_SERVICE_URL=http://puppeteer:3001
+    restart: always
+
+  puppeteer:
+    build: ./puppeteer
+    ports:
+      - "3001:3001"
+    restart: always
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always

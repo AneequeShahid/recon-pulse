@@ -1,0 +1,13 @@
+{
+  "name": "recon-pulse-puppeteer",
+  "version": "1.0.0",
+  "description": "Puppeteer service for capturing screenshots and metadata for Recon Pulse",
+  "main": "screenshot.js",
+  "scripts": {
+    "start": "node screenshot.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "puppeteer": "^22.12.0"
+  }
+}

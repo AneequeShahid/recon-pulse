@@ -13,9 +13,9 @@ export default function ShareButton({ reportId }) {
   return (
     <button
       onClick={copy}
-      className="flex items-center gap-2 px-4 py-2 bg-slate-950 border border-slate-800 text-slate-200 text-xs font-semibold rounded-lg hover:bg-slate-900 hover:border-slate-700 transition-all cursor-pointer shadow-md"
+      className="bg-white/5 border border-white/10 text-primary px-4 py-2 rounded-lg font-title-md text-sm hover:bg-white/10 hover:shadow-[0_0_15px_rgba(173,198,255,0.4)] transition-all drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] backdrop-blur-md cursor-pointer"
     >
-      {copied ? '✓ Link copied' : '🔗 Share report'}
+      {copied ? '✓ Copied' : 'Share Report'}
     </button>
   );
 }

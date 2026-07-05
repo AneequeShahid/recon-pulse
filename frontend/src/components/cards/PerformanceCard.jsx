@@ -1,8 +1,8 @@
 export default function PerformanceCard({ data, loading }) {
   if (loading) {
     return (
-      <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 h-64 flex items-center justify-center animate-pulse">
-        <div className="text-slate-500 text-sm">Measuring speed performance...</div>
+      <div className="bento-card col-span-1 md:col-span-3 rounded-xl p-6 flex flex-col items-center justify-center min-h-[180px] animate-pulse">
+        <div className="text-slate-500 text-sm font-mono-data">Performance...</div>
       </div>
     );
   }
@@ -10,35 +10,35 @@ export default function PerformanceCard({ data, loading }) {
   const performance = data?.performance;
   const score = performance?.performance_score;
 
-  const scoreColor = (val) => {
-    if (val === null || val === undefined) return 'text-slate-500 border-slate-800';
-    if (val >= 90) return 'text-emerald-400 border-emerald-500/30';
-    if (val >= 50) return 'text-yellow-400 border-yellow-500/30';
-    return 'text-rose-500 border-rose-500/30';
-  };
+  const radius = 45;
+  const circumference = 2 * Math.PI * radius; // ~282.7
+  const strokeDashoffset = score !== null && score !== undefined
+    ? circumference - (score / 100) * circumference
+    : circumference;
 
   return (
-    <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 h-full min-h-[220px] flex flex-col justify-between">
-      <div>
-        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">⚡ Performance</h3>
-        <div className="flex items-center gap-6">
-          <div className={`w-20 h-20 rounded-full border-4 flex items-center justify-center ${scoreColor(score)} bg-slate-950/40`}>
-            <span className="text-2xl font-bold">{score !== null && score !== undefined ? `${score}` : '?'}</span>
-          </div>
-          <div className="flex-1 grid grid-cols-3 gap-2">
-            <div className="bg-slate-950/40 border border-slate-800/60 rounded-xl p-3 flex flex-col justify-between">
-              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">LCP</span>
-              <span className="text-sm font-bold text-slate-200 mt-1">{performance?.lcp !== null && performance?.lcp !== undefined ? `${performance?.lcp}s` : '?'}</span>
-            </div>
-            <div className="bg-slate-950/40 border border-slate-800/60 rounded-xl p-3 flex flex-col justify-between">
-              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">FCP</span>
-              <span className="text-sm font-bold text-slate-200 mt-1">{performance?.fcp !== null && performance?.fcp !== undefined ? `${performance?.fcp}s` : '?'}</span>
-            </div>
-            <div className="bg-slate-950/40 border border-slate-800/60 rounded-xl p-3 flex flex-col justify-between">
-              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">CLS</span>
-              <span className="text-sm font-bold text-slate-200 mt-1">{performance?.cls !== null && performance?.cls !== undefined ? `${performance?.cls}` : '?'}</span>
-            </div>
-          </div>
+    <div className="bento-card col-span-1 md:col-span-3 rounded-xl p-6 flex flex-col items-center justify-center min-h-[180px]">
+      <h3 className="font-label-sm text-xs text-on-surface-variant absolute top-6 left-6 uppercase tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">Performance</h3>
+      <div className="relative w-32 h-32 mt-8 flex items-center justify-center">
+        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" fill="none" r={radius} stroke="rgba(255,255,255,0.05)" strokeWidth="10"></circle>
+          <circle
+            className="drop-shadow-[0_0_12px_rgba(173,198,255,0.6)] transition-all duration-1000"
+            cx="50"
+            cy="50"
+            fill="none"
+            r={radius}
+            stroke={score >= 90 ? "#34d399" : score >= 50 ? "#fbbf24" : score ? "#f87171" : "rgba(255,255,255,0.1)"}
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeWidth="10"
+            strokeLinecap="round"
+          ></circle>
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center flex-col">
+          <span className="font-headline-lg text-2xl font-bold text-on-surface drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+            {score !== null && score !== undefined ? `${score}%` : '?'}
+          </span>
         </div>
       </div>
     </div>

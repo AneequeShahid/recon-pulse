@@ -1,8 +1,8 @@
 export default function TechStackCard({ data, loading }) {
   if (loading) {
     return (
-      <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 h-64 flex items-center justify-center animate-pulse">
-        <div className="text-slate-500 text-sm">Detecting technologies...</div>
+      <div className="bento-card col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col h-full min-h-[220px] animate-pulse">
+        <div className="text-slate-500 text-sm font-mono-data">Detecting tech stack...</div>
       </div>
     );
   }
@@ -11,19 +11,21 @@ export default function TechStackCard({ data, loading }) {
   const hasTech = techStack && techStack.technologies && techStack.technologies.length > 0;
 
   return (
-    <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 h-full min-h-[220px]">
-      <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">🛠️ Tech Stack</h3>
+    <div className="bento-card col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col h-full min-h-[220px]">
+      <h3 className="font-label-sm text-xs text-on-surface-variant mb-4 uppercase tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">Tech Stack</h3>
+      
       {hasTech ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex-1 flex flex-col justify-end gap-3 mt-4">
           {Object.entries(techStack.categories).map(([category, techs]) => (
             <div key={category} className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">{category}</span>
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider font-label-sm">{category}</span>
               <div className="flex flex-wrap gap-2">
                 {techs.map((tech) => (
                   <span
                     key={tech}
-                    className="text-xs px-2.5 py-1 bg-slate-800 border border-slate-700/50 rounded-lg text-slate-200 font-medium"
+                    className="bg-white/5 text-primary border border-white/10 backdrop-blur-md px-3 py-1 rounded-full font-mono-data text-xs flex items-center gap-2 shadow-[0_4px_10px_rgba(0,0,0,0.2)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
                   >
+                    <span className="w-2 h-2 rounded-full bg-primary shadow-[0_0_5px_rgba(173,198,255,0.8)]"></span>
                     {tech}
                   </span>
                 ))}
@@ -32,7 +34,7 @@ export default function TechStackCard({ data, loading }) {
           ))}
         </div>
       ) : (
-        <div className="flex items-center justify-center h-32 bg-slate-950/40 rounded-xl border border-slate-800/60 text-slate-500 text-xs">
+        <div className="flex-1 flex items-center justify-center h-32 bg-black/40 rounded-lg border border-white/5 text-on-surface-variant text-xs font-mono-data">
           No technologies detected
         </div>
       )}

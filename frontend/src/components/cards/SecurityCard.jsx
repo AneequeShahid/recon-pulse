@@ -1,8 +1,8 @@
 export default function SecurityCard({ data, loading }) {
   if (loading) {
     return (
-      <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 h-64 flex items-center justify-center animate-pulse">
-        <div className="text-slate-500 text-sm">Analyzing SSL & headers...</div>
+      <div className="bento-card col-span-1 md:col-span-3 rounded-xl p-6 flex flex-col items-center justify-center min-h-[180px] animate-pulse">
+        <div className="text-slate-500 text-sm font-mono-data font-semibold">Security Grade...</div>
       </div>
     );
   }
@@ -10,38 +10,17 @@ export default function SecurityCard({ data, loading }) {
   const security = data?.security;
   const gradeColor = (grade) => {
     if (!grade) return 'text-slate-500';
-    if (grade.startsWith('A')) return 'text-emerald-400';
-    if (grade.startsWith('B')) return 'text-blue-400';
-    if (grade.startsWith('C')) return 'text-yellow-400';
-    return 'text-rose-500';
+    if (grade.startsWith('A')) return 'text-emerald-400 drop-shadow-[0_0_25px_rgba(52,211,153,0.5)]';
+    if (grade.startsWith('B')) return 'text-blue-400 drop-shadow-[0_0_25px_rgba(96,165,250,0.5)]';
+    if (grade.startsWith('C')) return 'text-yellow-400 drop-shadow-[0_0_25px_rgba(251,191,36,0.5)]';
+    return 'text-rose-500 drop-shadow-[0_0_25px_rgba(244,63,94,0.5)]';
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 h-full min-h-[220px]">
-      <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">🔒 Security & Headers</h3>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-slate-950/40 rounded-xl p-4 border border-slate-800/60 flex flex-col justify-between">
-          <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">SSL Certificate</span>
-          <div className="my-2">
-            <span className={`text-4xl font-extrabold ${gradeColor(security?.ssl_grade)}`}>
-              {security?.ssl_grade || '?'}
-            </span>
-          </div>
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full w-fit ${
-            security?.https ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
-          }`}>
-            {security?.https ? '✓ HTTPS Active' : '✗ Unencrypted'}
-          </span>
-        </div>
-        <div className="bg-slate-950/40 rounded-xl p-4 border border-slate-800/60 flex flex-col justify-between">
-          <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">HTTP Headers</span>
-          <div className="my-2">
-            <span className={`text-4xl font-extrabold ${gradeColor(security?.headers_grade)}`}>
-              {security?.headers_grade || '?'}
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-400">Security Score</span>
-        </div>
+    <div className="bento-card col-span-1 md:col-span-3 rounded-xl p-6 flex flex-col items-center justify-center text-center min-h-[180px]">
+      <h3 className="font-label-sm text-xs text-on-surface-variant absolute top-6 left-6 uppercase tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">Security Grade</h3>
+      <div className={`font-display-xl text-[80px] leading-none font-bold ${gradeColor(security?.ssl_grade)} mt-8`}>
+        {security?.ssl_grade || '?'}
       </div>
     </div>
   );

@@ -995,19 +995,30 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                   <div className="text-slate-500 rp-mono text-xs mt-8">Checking...</div>
                 ) : !compareMode ? (
                   report?.github?.exists ? (
-                    <div className="flex gap-8 mt-8">
-                      {[
-                        { icon: "star", label: "Repos", val: report?.github?.repos || 0 },
-                        { icon: "group", label: "Followers", val: report?.github?.followers || 0 },
-                      ].map((s) => (
-                        <div key={s.label}>
-                          <div className="flex items-center gap-2 text-[#c2c6d6] mb-1">
-                            <span className="mso text-sm" style={{ color: "rgba(173,198,255,0.7)" }}>{s.icon}</span>
-                            <span className="rp-label">{s.label}</span>
+                    <div>
+                      <div className="flex gap-8 mt-8">
+                        {[
+                          { icon: "star", label: "Repos", val: report?.github?.repos || 0 },
+                          { icon: "group", label: "Followers", val: report?.github?.followers || 0 },
+                        ].map((s) => (
+                          <div key={s.label}>
+                            <div className="flex items-center gap-2 text-[#c2c6d6] mb-1">
+                              <span className="mso text-sm" style={{ color: "rgba(173,198,255,0.7)" }}>{s.icon}</span>
+                              <span className="rp-label">{s.label}</span>
+                            </div>
+                            <div className="rp-headline">{s.val}</div>
                           </div>
-                          <div className="rp-headline">{s.val}</div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                      <a 
+                        href={`https://github.com/${report?.url?.replace(/^https?:\/\/(www\.)?/, '').split('.')[0] || ''}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-4 text-xs text-blue-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        View Profile ↗
+                      </a>
                     </div>
                   ) : (
                     <div className="text-[#c2c6d6] rp-mono text-xs mt-8">No public profile found</div>
@@ -1268,18 +1279,33 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 ) : !compareMode ? (
                   <div className="grid grid-cols-2 gap-2 mt-2 text-xs rp-mono">
                     {[
-                      { icon: "🐦", name: "Twitter", val: report?.social?.twitter },
-                      { icon: "💼", name: "LinkedIn", val: report?.social?.linkedin },
-                      { icon: "🐙", name: "GitHub", val: report?.social?.github },
-                      { icon: "📸", name: "Instagram", val: report?.social?.instagram },
-                      { icon: "📘", name: "Facebook", val: report?.social?.facebook },
-                      { icon: "▶️", name: "YouTube", val: report?.social?.youtube },
+                      { icon: "🐦", name: "Twitter", val: report?.social?.twitter, url: `https://twitter.com/${report?.url?.replace(/^https?:\/\/(www\.)?/, '').split('.')[0] || ''}` },
+                      { icon: "💼", name: "LinkedIn", val: report?.social?.linkedin, url: `https://linkedin.com/company/${report?.url?.replace(/^https?:\/\/(www\.)?/, '').split('.')[0] || ''}` },
+                      { icon: "🐙", name: "GitHub", val: report?.social?.github, url: `https://github.com/${report?.url?.replace(/^https?:\/\/(www\.)?/, '').split('.')[0] || ''}` },
+                      { icon: "📸", name: "Instagram", val: report?.social?.instagram, url: `https://instagram.com/${report?.url?.replace(/^https?:\/\/(www\.)?/, '').split('.')[0] || ''}` },
+                      { icon: "📘", name: "Facebook", val: report?.social?.facebook, url: `https://facebook.com/${report?.url?.replace(/^https?:\/\/(www\.)?/, '').split('.')[0] || ''}` },
+                      { icon: "▶️", name: "YouTube", val: report?.social?.youtube, url: `https://youtube.com/@{report?.url?.replace(/^https?:\/\/(www\.)?/, '').split('.')[0] || ''}` },
                     ].map((p) => (
-                      <div key={p.name} className={`flex items-center gap-1 p-1.5 rounded border transition-colors ${p.val ? 'border-blue-400/30 bg-blue-400/10 text-white' : 'border-white/5 bg-white/5 text-slate-500'}`}>
-                        <span>{p.icon}</span>
-                        <span className="truncate">{p.name}</span>
-                        <span className="ml-auto">{p.val ? "✓" : "✗"}</span>
-                      </div>
+                      p.val ? (
+                        <a 
+                          key={p.name} 
+                          href={p.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1 p-1.5 rounded border border-blue-400/30 bg-blue-400/10 hover:bg-blue-400/20 text-white transition-colors cursor-pointer"
+                        >
+                          <span>{p.icon}</span>
+                          <span className="truncate hover:underline">{p.name}</span>
+                          <span className="ml-auto text-blue-400">↗</span>
+                        </a>
+                      ) : (
+                        <div key={p.name} className="flex items-center gap-1 p-1.5 rounded border border-white/5 bg-white/5 text-slate-500">
+                          <span>{p.icon}</span>
+                          <span className="truncate">{p.name}</span>
+                          <span className="ml-auto">✗</span>
+                        </div>
+                      )
                     ))}
                   </div>
                 ) : (
@@ -1355,6 +1381,17 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                           {new Date().getFullYear() - parseInt(report.wayback.first_seen)} years online
                         </div>
                       </div>
+                    )}
+                    {report?.wayback?.latest_snapshot && (
+                      <a 
+                        href={report.wayback.latest_snapshot}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-3 text-xs text-blue-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        View Archive Snapshot ↗
+                      </a>
                     )}
                   </div>
                 ) : (
@@ -1861,8 +1898,14 @@ function CardDetailModal({ cardKey, report, extractedColors, onClose }: { cardKe
                 {sec.rows.map((r) => (
                   <div key={r.k} className="flex items-start justify-between gap-4 px-4 py-3">
                     <span className="text-[#c2c6d6] text-sm">{r.k}</span>
-                    <span className={r.mono ? "rp-mono text-right" : "text-[#e1e2ec] text-sm text-right"}>
-                      {r.v}
+                    <span className={r.mono ? "rp-mono text-right break-all" : "text-[#e1e2ec] text-sm text-right break-all"}>
+                      {r.v && (r.v.startsWith('http://') || r.v.startsWith('https://')) ? (
+                        <a href={r.v} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                          {r.v}
+                        </a>
+                      ) : (
+                        r.v
+                      )}
                     </span>
                   </div>
                 ))}

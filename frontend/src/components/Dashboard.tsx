@@ -26,6 +26,49 @@ export function Dashboard() {
 
 
   const { report, status } = useReportStream(activeReportId);
+  const [historyList, setHistoryList] = useState<any[]>([]);
+
+  // Load history from localStorage
+  useEffect(() => {
+    try {
+      const history = JSON.parse(localStorage.getItem('rp_history') || '[]');
+      setHistoryList(history);
+    } catch (e) {
+      console.warn('load history failed', e);
+    }
+  }, [status]);
+
+  // Save successful scan to history
+  useEffect(() => {
+    if (status === 'complete' && report && activeReportId) {
+      try {
+        const history = JSON.parse(localStorage.getItem('rp_history') || '[]');
+        const entry = { url: report.url, reportId: activeReportId, timestamp: Date.now() };
+        const updated = [entry, ...history.filter((h: any) => h.url !== report.url)].slice(0, 10);
+        localStorage.setItem('rp_history', JSON.stringify(updated));
+        setHistoryList(updated);
+      } catch (e) {
+        console.warn('save history failed', e);
+      }
+    }
+  }, [status, report, activeReportId]);
+
+  const handleHistoryClick = async (url: string) => {
+    setUrlInput(url);
+    setSubmitting(true);
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const { data } = await axios.post(`${apiBaseUrl}/api/report`, { url });
+      setActiveReportId(data.report_id);
+      window.history.pushState(null, '', `/r/${data.report_id}`);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to start website intelligence scan.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
 
   // Extract color palette from screenshot image using Canvas
   useEffect(() => {
@@ -328,8 +371,8 @@ export function Dashboard() {
 
         <div className="p-6 md:p-10 max-w-[1600px] mx-auto w-full flex-1">
           {/* Search */}
-          <div className="mb-12 flex justify-center w-full relative z-20">
-            <form onSubmit={handleScan} className="relative w-full max-w-2xl flex items-center">
+          <div className="mb-12 flex flex-col items-center justify-center w-full relative z-20">
+            <form onSubmit={handleScan} className="relative w-full max-w-2xl flex items-center mb-4">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none" style={{ color: PRIMARY }}>
                 <span className="mso animate-pulse">radar</span>
               </div>
@@ -354,7 +397,22 @@ export function Dashboard() {
                 {submitting ? 'Pulse...' : 'Scan'}
               </button>
             </form>
+            {historyList.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 max-w-2xl justify-center">
+                <span className="text-xs text-slate-400 rp-mono">Recent:</span>
+                {historyList.map((h) => (
+                  <button
+                    key={h.reportId}
+                    onClick={() => handleHistoryClick(h.url)}
+                    className="text-xs bg-white/5 hover:bg-white/15 border border-white/10 px-3 py-1 rounded-full text-slate-300 transition cursor-pointer rp-mono"
+                  >
+                    {h.url.replace(/^https?:\/\/(www\.)?/, '')}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
 
           {/* Bento grid */}
           {activeReportId && (

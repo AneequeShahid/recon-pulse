@@ -8,6 +8,8 @@ class ReportRequest(BaseModel):
 class TechStack(BaseModel):
     technologies: List[str] = []
     categories: Dict[str, Any] = {}
+    trackers: List[str] = []
+
 
 class SecurityInfo(BaseModel):
     ssl_grade: Optional[str] = None

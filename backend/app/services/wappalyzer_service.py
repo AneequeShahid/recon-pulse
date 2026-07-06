@@ -79,8 +79,35 @@ async def fetch_tech_stack(url: str) -> TechStack:
                 if tech not in categories[cat]:
                     categories[cat].append(tech)
 
-    print(f"[WAPPALYZER] detected: {technologies}")
+        # B5 - Tracker and cookie inventory
+        trackers_dict = {
+            "Google Analytics": ["google-analytics.com", "gtag(", "ga(", "UA-", "G-"],
+            "Facebook Pixel": ["connect.facebook.net", "fbq(", "fb-pixel"],
+            "HotJar": ["hotjar.com", "hjSetting"],
+            "Intercom": ["intercom.io", "intercomSettings"],
+            "Mixpanel": ["mixpanel.com", "mixpanel.track"],
+            "Segment": ["segment.com", "analytics.js"],
+            "Crisp": ["crisp.chat", "CRISP_WEBSITE_ID"],
+            "Drift": ["drift.com", "driftt.com"],
+            "Zendesk": ["zendesk.com", "zESettings"],
+            "Stripe": ["js.stripe.com"],
+            "Google Tag Manager": ["googletagmanager.com", "gtm.js"],
+            "Microsoft Clarity": ["clarity.ms"],
+            "LinkedIn Insight": ["snap.licdn.com"],
+            "Twitter Pixel": ["static.ads-twitter.com"],
+            "TikTok Pixel": ["analytics.tiktok.com"],
+        }
+        detected_trackers = []
+        for tracker, keywords in trackers_dict.items():
+            for kw in keywords:
+                if kw.lower() in html_body:
+                    detected_trackers.append(tracker)
+                    break
+
+    print(f"[WAPPALYZER] detected: {technologies}, trackers: {detected_trackers}")
     return TechStack(
         technologies=technologies,
-        categories=categories
+        categories=categories,
+        trackers=detected_trackers
     )
+

@@ -665,6 +665,154 @@ export function Dashboard() {
                   </>
                 )}
               </div>
+
+              {/* Redirect Chain */}
+              <div data-card="redirect_chain" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                <SectionLabel>Redirect Chain</SectionLabel>
+                {isLoading ? (
+                  <div className="text-slate-500 rp-mono text-xs">Tracking redirects...</div>
+                ) : (report?.redirect_chain?.hops || []).length > 0 ? (
+                  <div className="space-y-1 mt-2 rp-mono text-xs">
+                    {(report.redirect_chain.hops || []).map((hop: any, idx: number) => {
+                      const isSuccess = hop.status === 200;
+                      const isRedirect = hop.status >= 300 && hop.status < 400;
+                      const statusColor = isSuccess ? 'text-green-400' : isRedirect ? 'text-orange-400' : 'text-red-400';
+                      return (
+                        <div key={idx} className="flex justify-between items-center border-b border-white/5 pb-1">
+                          <span className="truncate max-w-[70%]">{hop.url.replace(/^https?:\/\//, '')}</span>
+                          <span className={statusColor}>{hop.status} {isSuccess && '✓'}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No redirect history</div>
+                )}
+              </div>
+
+              {/* Email Security */}
+              <div data-card="email_security" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                <SectionLabel>Email Security</SectionLabel>
+                {isLoading ? (
+                  <div className="text-slate-500 rp-mono text-xs">Scanning DNS...</div>
+                ) : (
+                  <div className="space-y-2 mt-2 rp-mono text-sm">
+                    <div className="flex justify-between">
+                      <span>SPF</span>
+                      <span className={report?.email_security?.spf ? "text-green-400" : "text-red-400"}>
+                        {report?.email_security?.spf ? "✓ Pass" : "✗ Fail"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>DMARC</span>
+                      <span className={report?.email_security?.dmarc ? "text-green-400" : "text-red-400"}>
+                        {report?.email_security?.dmarc ? "✓ Pass" : "✗ Fail"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>DKIM</span>
+                      <span className={report?.email_security?.dkim ? "text-green-400" : "text-red-400"}>
+                        {report?.email_security?.dkim ? "✓ Pass" : "✗ Fail"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Social Presence */}
+              <div data-card="social" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                <SectionLabel>Social Presence</SectionLabel>
+                {isLoading ? (
+                  <div className="text-slate-500 rp-mono text-xs">Looking up brand profiles...</div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 mt-2 text-xs rp-mono">
+                    {[
+                      { icon: "🐦", name: "Twitter", val: report?.social?.twitter },
+                      { icon: "💼", name: "LinkedIn", val: report?.social?.linkedin },
+                      { icon: "🐙", name: "GitHub", val: report?.social?.github },
+                      { icon: "📸", name: "Instagram", val: report?.social?.instagram },
+                      { icon: "📘", name: "Facebook", val: report?.social?.facebook },
+                      { icon: "▶️", name: "YouTube", val: report?.social?.youtube },
+                    ].map((p) => (
+                      <div key={p.name} className={`flex items-center gap-1 p-1.5 rounded border transition-colors ${p.val ? 'border-blue-400/30 bg-blue-400/10 text-white' : 'border-white/5 bg-white/5 text-slate-500'}`}>
+                        <span>{p.icon}</span>
+                        <span className="truncate">{p.name}</span>
+                        <span className="ml-auto">{p.val ? "✓" : "✗"}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Trackers */}
+              <div data-card="trackers" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                <SectionLabel>Trackers & Cookies</SectionLabel>
+                {isLoading ? (
+                  <div className="text-slate-500 rp-mono text-xs">Scanning headers...</div>
+                ) : (report?.tech_stack?.trackers || []).length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 mt-auto max-h-[100px] overflow-y-auto">
+                    {(report.tech_stack.trackers || []).map((t: string) => (
+                      <span key={t} className="bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[10px] rp-mono text-slate-300">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-slate-500 rp-mono text-xs mt-auto">No trackers detected.</div>
+                )}
+              </div>
+
+              {/* Website Age */}
+              <div data-card="wayback" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                <SectionLabel>Website Age</SectionLabel>
+                {isLoading ? (
+                  <div className="text-slate-500 rp-mono text-xs">Checking archive...</div>
+                ) : (
+                  <div>
+                    <div className="text-sm rp-mono text-slate-300">
+                      First seen: <span className="font-semibold text-white">{report?.wayback?.first_seen || 'N/A'}</span>
+                    </div>
+                    {report?.wayback?.first_seen && (
+                      <div className="mt-4">
+                        <div className="flex justify-between text-[10px] text-slate-400 mb-1 rp-mono">
+                          <span>1995</span>
+                          <span>Today</span>
+                        </div>
+                        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden border border-white/5 flex">
+                          <div 
+                            className="h-full bg-blue-400" 
+                            style={{ 
+                              width: `${Math.max(5, Math.min(100, ((new Date().getFullYear() - parseInt(report.wayback.first_seen)) / (new Date().getFullYear() - 1995)) * 100))}%` 
+                            }} 
+                          />
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1 rp-mono text-right">
+                          {new Date().getFullYear() - parseInt(report.wayback.first_seen)} years online
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Fonts */}
+              <div data-card="fonts" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                <SectionLabel>Google Fonts</SectionLabel>
+                {isLoading ? (
+                  <div className="text-slate-500 rp-mono text-xs">Analyzing styles...</div>
+                ) : (report?.tech_stack?.fonts || []).length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 mt-auto max-h-[100px] overflow-y-auto">
+                    {(report.tech_stack.fonts || []).map((f: string) => (
+                      <span key={f} className="bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[10px] rp-mono text-slate-300">
+                        {f}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-slate-500 rp-mono text-xs mt-auto">No custom web fonts detected.</div>
+                )}
+              </div>
+
             </div>
           )}
         </div>
@@ -900,7 +1048,78 @@ const getCardDetails = (report: any, extractedColors: any): Record<string, Detai
           { k: "Label", v: traffic?.rank_label || "N/A" }
         ]}
       ]
+    },
+    redirect_chain: {
+      title: "Redirect Chain Details",
+      subtitle: "Hop-by-hop HTTP redirection history",
+      icon: "link",
+      sections: [
+        { label: "Hops", rows: (report?.redirect_chain?.hops || []).map((h: any, idx: number) => ({
+          k: `Hop ${idx + 1} (${h.status})`,
+          v: `${h.url} ${h.location ? '→ ' + h.location : ''}`
+        }))}
+      ]
+    },
+    email_security: {
+      title: "Email Security Records",
+      subtitle: "SPF, DMARC, and DKIM DNS records",
+      icon: "mail",
+      sections: [
+        { label: "Records", rows: [
+          { k: "SPF Record", v: report?.email_security?.spf_record || "No SPF record found" },
+          { k: "DMARC Record", v: report?.email_security?.dmarc_record || "No DMARC record found" }
+        ]}
+      ]
+    },
+    social: {
+      title: "Social Presence Inventory",
+      subtitle: "Linked brand profiles on key platforms",
+      icon: "share",
+      sections: [
+        { label: "Profiles", rows: [
+          { k: "Twitter/X", v: report?.social?.twitter ? "Found" : "Not Found" },
+          { k: "LinkedIn", v: report?.social?.linkedin ? "Found" : "Not Found" },
+          { k: "GitHub", v: report?.social?.github ? "Found" : "Not Found" },
+          { k: "Instagram", v: report?.social?.instagram ? "Found" : "Not Found" },
+          { k: "Facebook", v: report?.social?.facebook ? "Found" : "Not Found" },
+          { k: "YouTube", v: report?.social?.youtube ? "Found" : "Not Found" }
+        ]}
+      ]
+    },
+    trackers: {
+      title: "Detected Trackers",
+      subtitle: "Third-party analytics, CRM and pixel scripts",
+      icon: "track_changes",
+      sections: [
+        { label: "Trackers List", rows: (report?.tech_stack?.trackers || []).map((t: string) => ({
+          k: t,
+          v: "Detected"
+        }))}
+      ]
+    },
+    wayback: {
+      title: "Wayback Machine Archive",
+      subtitle: "Historical index snapshots from archive.org",
+      icon: "history",
+      sections: [
+        { label: "Archive Details", rows: [
+          { k: "First Seen Year", v: report?.wayback?.first_seen || "N/A" },
+          { k: "Latest Snapshot URL", v: report?.wayback?.latest_snapshot || "N/A" }
+        ]}
+      ]
+    },
+    fonts: {
+      title: "Detected Fonts",
+      subtitle: "Google Web Fonts referenced by the page",
+      icon: "font_download",
+      sections: [
+        { label: "Fonts List", rows: (report?.tech_stack?.fonts || []).map((f: string) => ({
+          k: f,
+          v: "Active"
+        }))}
+      ]
     }
+
   };
 };
 

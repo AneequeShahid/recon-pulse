@@ -352,7 +352,7 @@ function Dashboard() {
                     <div className="w-full h-full flex items-center justify-center text-slate-500 rp-mono">Capturing screenshot...</div>
                   ) : report?.screenshot_url ? (
                     <>
-                      <img src={report.screenshot_url} alt="Site screenshot" className="w-full h-full object-cover opacity-90 mix-blend-screen" />
+                      <img src={report?.screenshot_url} alt="Site screenshot" className="w-full h-full object-cover opacity-90 mix-blend-screen" />
                       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a]/90 via-transparent to-transparent" />
                     </>
                   ) : (
@@ -366,9 +366,9 @@ function Dashboard() {
                 <SectionLabel>Tech Stack</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-sm mt-auto">Detecting technologies...</div>
-                ) : report?.tech_stack?.technologies?.length > 0 ? (
+                ) : (report?.tech_stack?.technologies || []).length > 0 ? (
                   <div className="flex flex-wrap gap-2 mt-auto">
-                    {report.tech_stack.technologies.slice(0, 6).map((t: string) => (
+                    {(report?.tech_stack?.technologies || []).slice(0, 6).map((t: string) => (
                       <span
                         key={t}
                         className="border border-white/10 px-3 py-1 rounded-full rp-mono flex items-center gap-2 text-xs"
@@ -435,7 +435,7 @@ function Dashboard() {
                     <div className="rp-headline font-light">
                       {report?.domain?.age_days !== null && report?.domain?.age_days !== undefined ? (
                         <>
-                          {Math.floor(report.domain.age_days / 365)}<span className="text-[#c2c6d6] text-lg">y</span> {Math.floor((report.domain.age_days % 365) / 30)}<span className="text-[#c2c6d6] text-lg">m</span>
+                          {Math.floor(report?.domain?.age_days / 365)}<span className="text-[#c2c6d6] text-lg">y</span> {Math.floor((report?.domain?.age_days % 365) / 30)}<span className="text-[#c2c6d6] text-lg">m</span>
                         </>
                       ) : 'Unknown'}
                     </div>
@@ -451,12 +451,12 @@ function Dashboard() {
                 <SectionLabel>Recent Mentions</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs mt-auto">Searching news...</div>
-                ) : report?.news?.length > 0 ? (
+                ) : (report?.news || []).length > 0 ? (
                   <ul className="space-y-4 mt-auto">
-                    {report.news.slice(0, 2).map((n: any, idx: number) => (
+                    {(report?.news || []).slice(0, 2).map((n: any, idx: number) => (
                       <li key={idx} className="border-b border-white/10 pb-3 last:border-0 last:pb-0">
-                        <p className="text-sm leading-6 text-[#e1e2ec] line-clamp-1">{n.title}</p>
-                        <span className="rp-mono text-xs" style={{ color: PRIMARY }}>{n.source} · {n.date || 'recent'}</span>
+                        <p className="text-sm leading-6 text-[#e1e2ec] line-clamp-1">{n?.title}</p>
+                        <span className="rp-mono text-xs" style={{ color: PRIMARY }}>{n?.source} · {n?.date || 'recent'}</span>
                       </li>
                     ))}
                   </ul>
@@ -473,8 +473,8 @@ function Dashboard() {
                 ) : report?.github?.exists ? (
                   <div className="flex gap-8 mt-8">
                     {[
-                      { icon: "star", label: "Repos", val: report.github.repos || 0 },
-                      { icon: "group", label: "Followers", val: report.github.followers || 0 },
+                      { icon: "star", label: "Repos", val: report?.github?.repos || 0 },
+                      { icon: "group", label: "Followers", val: report?.github?.followers || 0 },
                     ].map((s) => (
                       <div key={s.label}>
                         <div className="flex items-center gap-2 text-[#c2c6d6] mb-1">
@@ -518,7 +518,7 @@ function Dashboard() {
                     </div>
                     <span className="rp-title" style={{ color: "#34d399" }}>{report?.carbon?.rating || 'Low'}</span>
                     <span className="rp-mono text-[#c2c6d6] text-xs mt-1">
-                      {report?.carbon?.grams_per_view ? `${report.carbon.grams_per_view}g CO2` : '0.12g CO2'}
+                      {report?.carbon?.grams_per_view ? `${report?.carbon?.grams_per_view}g CO2` : '0.12g CO2'}
                     </span>
                   </div>
                 )}
@@ -528,9 +528,9 @@ function Dashboard() {
               <GlassCard cardKey="dns" label="DNS Records" icon="dns" title="Protected Zone Data" span={5} loading={isLoading}>
                 {report?.dns_records?.A ? (
                   <>
-                    <DnsRow t="A" v={report.dns_records.A[0]} />
-                    {report.dns_records.AAAA?.[0] && <DnsRow t="AAAA" v={report.dns_records.AAAA[0]} />}
-                    {report.dns_records.MX?.[0] && <DnsRow t="MX" v={report.dns_records.MX[0]} last />}
+                    <DnsRow t="A" v={report?.dns_records?.A?.[0]} />
+                    {report?.dns_records?.AAAA?.[0] && <DnsRow t="AAAA" v={report?.dns_records?.AAAA?.[0]} />}
+                    {report?.dns_records?.MX?.[0] && <DnsRow t="MX" v={report?.dns_records?.MX?.[0]} last />}
                   </>
                 ) : (
                   <div className="text-on-surface-variant text-xs rp-mono">No DNS resolved</div>
@@ -546,7 +546,7 @@ function Dashboard() {
                   <>
                     <div className="mt-8 flex items-end gap-3">
                       <span className="rp-display font-bold">
-                        {report?.traffic?.tranco_rank ? `#${report.traffic.tranco_rank.toLocaleString()}` : '#N/A'}
+                        {report?.traffic?.tranco_rank ? `#${report?.traffic?.tranco_rank.toLocaleString()}` : '#N/A'}
                       </span>
                       <span className="rp-mono flex items-center mb-2" style={{ color: "#34d399", textShadow: "0 0 8px rgba(16,185,129,0.6)" }}>
                         <span className="mso text-sm mr-1">trending_up</span> Live
@@ -688,10 +688,10 @@ const getCardDetails = (report: any): Record<string, Detail> => {
       icon: "speed",
       sections: [
         { label: "Core Web Vitals", rows: [
-          { k: "Performance Score", v: performance?.performance_score !== null ? `${performance.performance_score}%` : "N/A" },
-          { k: "LCP (Largest Contentful Paint)", v: performance?.lcp !== null ? `${performance.lcp}s` : "N/A" },
-          { k: "CLS (Cumulative Layout Shift)", v: performance?.cls !== null ? `${performance.cls}` : "N/A" },
-          { k: "FCP (First Contentful Paint)", v: performance?.fcp !== null ? `${performance.fcp}s` : "N/A" }
+          { k: "Performance Score", v: (performance?.performance_score !== null && performance?.performance_score !== undefined) ? `${performance?.performance_score}%` : "N/A" },
+          { k: "LCP (Largest Contentful Paint)", v: (performance?.lcp !== null && performance?.lcp !== undefined) ? `${performance?.lcp}s` : "N/A" },
+          { k: "CLS (Cumulative Layout Shift)", v: (performance?.cls !== null && performance?.cls !== undefined) ? `${performance?.cls}` : "N/A" },
+          { k: "FCP (First Contentful Paint)", v: (performance?.fcp !== null && performance?.fcp !== undefined) ? `${performance?.fcp}s` : "N/A" }
         ]}
       ]
     },
@@ -717,7 +717,7 @@ const getCardDetails = (report: any): Record<string, Detail> => {
           { k: "Registrar", v: domain?.registrar || "Unknown" },
           { k: "Created", v: domain?.created || "Unknown" },
           { k: "Expires", v: domain?.expires || "Unknown" },
-          { k: "Age (Days)", v: domain?.age_days !== null ? `${domain.age_days} days` : "Unknown" }
+          { k: "Age (Days)", v: (domain?.age_days !== null && domain?.age_days !== undefined) ? `${domain?.age_days} days` : "Unknown" }
         ]}
       ]
     },
@@ -727,8 +727,8 @@ const getCardDetails = (report: any): Record<string, Detail> => {
       icon: "newspaper",
       sections: [
         { label: "Mentions List", rows: (report?.news || []).slice(0, 4).map((n: any) => ({
-          k: n.source || "News",
-          v: n.title || ""
+          k: n?.source || "News",
+          v: n?.title || ""
         }))}
       ]
     },
@@ -738,8 +738,8 @@ const getCardDetails = (report: any): Record<string, Detail> => {
       icon: "code",
       sections: [
         { label: "Developer Activity", rows: [
-          { k: "Repository Count", v: github?.repos !== null ? String(github.repos) : "N/A" },
-          { k: "Followers", v: github?.followers !== null ? String(github.followers) : "N/A" },
+          { k: "Repository Count", v: (github?.repos !== null && github?.repos !== undefined) ? String(github?.repos) : "N/A" },
+          { k: "Followers", v: (github?.followers !== null && github?.followers !== undefined) ? String(github?.followers) : "N/A" },
           { k: "Exists", v: github?.exists ? "Yes" : "No" }
         ]}
       ]
@@ -764,8 +764,8 @@ const getCardDetails = (report: any): Record<string, Detail> => {
       sections: [
         { label: "Footprint Details", rows: [
           { k: "Rating", v: carbon?.rating || "Low" },
-          { k: "CO2 per View", v: carbon?.grams_per_view !== null ? `${carbon.grams_per_view}g` : "N/A" },
-          { k: "Comparison Benchmark", v: carbon?.cleaner_than !== null ? `Cleaner than ${carbon.cleaner_than}% of sites` : "N/A" }
+          { k: "CO2 per View", v: (carbon?.grams_per_view !== null && carbon?.grams_per_view !== undefined) ? `${carbon?.grams_per_view}g` : "N/A" },
+          { k: "Comparison Benchmark", v: (carbon?.cleaner_than !== null && carbon?.cleaner_than !== undefined) ? `Cleaner than ${carbon?.cleaner_than}% of sites` : "N/A" }
         ]}
       ]
     },
@@ -786,7 +786,7 @@ const getCardDetails = (report: any): Record<string, Detail> => {
       accent: "#34d399",
       sections: [
         { label: "Traffic Stats", rows: [
-          { k: "Global Rank", v: traffic?.tranco_rank !== null ? `#${traffic.tranco_rank.toLocaleString()}` : "N/A" },
+          { k: "Global Rank", v: (traffic?.tranco_rank !== null && traffic?.tranco_rank !== undefined) ? `#${traffic?.tranco_rank.toLocaleString()}` : "N/A" },
           { k: "Label", v: traffic?.rank_label || "N/A" }
         ]}
       ]

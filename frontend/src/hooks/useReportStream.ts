@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 
 export function useReportStream(reportId: string | null) {
   const [report, setReport] = useState<any>(null);
@@ -15,39 +14,36 @@ export function useReportStream(reportId: string | null) {
     }
 
     const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    let poll: any;
+    const es = new EventSource(`${API_BASE_URL}/api/report/${reportId}/stream`);
 
-    const fetchReport = async () => {
+    es.onmessage = (e) => {
       try {
-        const { data } = await axios.get(`${API_BASE_URL}/api/report/${reportId}`);
+        const data = JSON.parse(e.data);
+        if (data.status === 'timeout') {
+          es.close();
+          setStatus('timeout');
+          return;
+        }
         setReport(data);
         setStatus(data.status);
         if (data.status === 'complete' || data.status === 'error') {
-          clearInterval(poll);
+          es.close();
         }
       } catch (err) {
-        console.error('Error fetching report:', err);
-        setError(err);
+        console.error('Failed to parse SSE message:', err);
       }
     };
 
-    fetchReport();
+    es.onerror = (err) => {
+      console.error('SSE Error:', err);
+      es.close();
+      setStatus('error');
+      setError(err);
+    };
 
-    poll = setInterval(async () => {
-      try {
-        const { data } = await axios.get(`${API_BASE_URL}/api/report/${reportId}`);
-        setReport(data);
-        setStatus(data.status);
-        if (data.status === 'complete' || data.status === 'error') {
-          clearInterval(poll);
-        }
-      } catch (err) {
-        console.error('Error fetching report:', err);
-        setError(err);
-      }
-    }, 1500);
-
-    return () => clearInterval(poll);
+    return () => {
+      es.close();
+    };
   }, [reportId]);
 
   return { report, status, error };

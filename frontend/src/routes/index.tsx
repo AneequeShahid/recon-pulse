@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import axios from 'axios';
 import { useReportStream } from '../hooks/useReportStream';
+// @ts-ignore
+import { getColor, getPalette } from 'colorthief';
 import {
   Dialog,
   DialogContent,
@@ -23,10 +25,6 @@ const PRIMARY = "#adc6ff";
 
 const navItems: { icon: string; label: string; active?: boolean }[] = [
   { icon: "dashboard", label: "Overview", active: true },
-  { icon: "public", label: "Threat Map" },
-  { icon: "radar", label: "Signal Intel" },
-  { icon: "inventory_2", label: "Archives" },
-  { icon: "hub", label: "Node Status" },
 ];
 
 function Dashboard() {
@@ -38,6 +36,38 @@ function Dashboard() {
   const [activeReportId, setActiveReportId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const [extractedColors, setExtractedColors] = useState<{ dominant: string; palette: string[] } | null>(null);
+
+  // Extract color palette from screenshot image using ColorThief
+  useEffect(() => {
+    if (!report?.screenshot_url) {
+      setExtractedColors(null);
+      return;
+    }
+
+    const isRemote = report.screenshot_url.startsWith("http");
+    const img = new Image();
+    if (isRemote) {
+      img.crossOrigin = "Anonymous";
+    }
+    img.src = report.screenshot_url;
+    img.onload = async () => {
+      try {
+        const domColor = await getColor(img);
+        const paletteColors = await getPalette(img, { colorCount: 5 });
+
+        if (domColor && paletteColors) {
+          setExtractedColors({
+            dominant: domColor.hex(),
+            palette: paletteColors.map(c => c.hex())
+          });
+        }
+      } catch (err) {
+        console.error("ColorThief error:", err);
+      }
+    };
+  }, [report?.screenshot_url]);
 
   const { report, status } = useReportStream(activeReportId);
 
@@ -259,20 +289,6 @@ function Dashboard() {
             </li>
           ))}
         </ul>
-        <div className="mt-auto pt-6 border-t border-white/10 space-y-2">
-          {[
-            { icon: "shield", label: "Security" },
-          ].map((n) => (
-            <a
-              key={n.label}
-              href="#"
-              className="flex items-center gap-3 px-4 py-3 text-[#c2c6d6] hover:bg-white/5 hover:text-[#adc6ff] rounded-lg transition-all"
-            >
-              <span className="mso">{n.icon}</span>
-              <span className="rp-title">{n.label}</span>
-            </a>
-          ))}
-        </div>
       </nav>
 
       <main className="flex-1 md:ml-64 relative min-h-screen flex flex-col">
@@ -380,7 +396,7 @@ function Dashboard() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No technologies detected</div>
+                  <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No technologies detected.</div>
                 )}
               </div>
 
@@ -495,9 +511,9 @@ function Dashboard() {
                 <SectionLabel>Extracted Palette</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs mt-auto">Extracting colors...</div>
-                ) : (report?.colors?.palette && report?.colors?.palette?.length > 0) ? (
+                ) : (extractedColors?.palette && extractedColors.palette.length > 0) ? (
                   <div className="flex gap-4 mt-auto h-20">
-                    {report.colors.palette.map((c: string) => (
+                    {extractedColors.palette.map((c: string) => (
                       <div key={c} className="flex-1 rounded-lg border border-white/20 relative group overflow-hidden"
                            style={{ backgroundColor: c, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-sm">
@@ -569,7 +585,7 @@ function Dashboard() {
         </div>
       </main>
 
-      <CardDetailDialog cardKey={activeCard} report={report} onClose={() => setActiveCard(null)} />
+      <CardDetailDialog cardKey={activeCard} report={report} extractedColors={extractedColors} onClose={() => setActiveCard(null)} />
     </div>
 
   );
@@ -641,7 +657,7 @@ type Detail = {
   notes?: string[];
 };
 
-const getCardDetails = (report: any): Record<string, Detail> => {
+const getCardDetails = (report: any, extractedColors: any): Record<string, Detail> => {
   const security = report?.security;
   const performance = report?.performance;
   const hosting = report?.hosting;
@@ -803,8 +819,8 @@ const getCardDetails = (report: any): Record<string, Detail> => {
   };
 };
 
-function CardDetailDialog({ cardKey, report, onClose }: { cardKey: string | null; report: any; onClose: () => void }) {
-  const details = getCardDetails(report);
+function CardDetailDialog({ cardKey, report, extractedColors, onClose }: { cardKey: string | null; report: any; extractedColors: any; onClose: () => void }) {
+  const details = getCardDetails(report, extractedColors);
   const detail = cardKey ? details[cardKey] : null;
   const accent = detail?.accent ?? PRIMARY;
   return (

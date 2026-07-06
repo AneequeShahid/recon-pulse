@@ -9,6 +9,8 @@ class TechStack(BaseModel):
     technologies: List[str] = []
     categories: Dict[str, Any] = {}
     trackers: List[str] = []
+    fonts: List[str] = []
+
 
 
 class SecurityInfo(BaseModel):

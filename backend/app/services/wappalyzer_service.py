@@ -104,10 +104,20 @@ async def fetch_tech_stack(url: str) -> TechStack:
                     detected_trackers.append(tracker)
                     break
 
-    print(f"[WAPPALYZER] detected: {technologies}, trackers: {detected_trackers}")
+        # B7 - Font detector
+        import re
+        google_fonts = re.findall(
+            r'fonts\.googleapis\.com/css[^"\']*family=([^&"\']+)',
+            html_body
+        )
+        fonts = list(set([f.split(':')[0].replace('+', ' ') for f in google_fonts]))
+
+    print(f"[WAPPALYZER] detected: {technologies}, trackers: {detected_trackers}, fonts: {fonts}")
     return TechStack(
         technologies=technologies,
         categories=categories,
-        trackers=detected_trackers
+        trackers=detected_trackers,
+        fonts=fonts
     )
+
 

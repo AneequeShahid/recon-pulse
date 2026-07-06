@@ -31,8 +31,8 @@ Recon Pulse uses a decoupled client-server architecture built for minimal latenc
                                   |           (Vite 5 + TS)               |
                                   +---------------------------------------+
                                     |                 ^                 ^
-                     1. POST /scan  |                 | 3. SSE Stream   | 2. Debounced
-                                    v                 | (EventSource)   |    Prefetch
+                      1. POST /api/report  |                 | 3. SSE Stream   | 2. Debounced
+                                           v                 | (EventSource)   |    Prefetch
                                   +---------------------------------------+
                                   |            FastAPI Backend            |
                                   +---------------------------------------+

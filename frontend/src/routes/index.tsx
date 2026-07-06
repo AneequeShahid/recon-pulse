@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from 'axios';
 import { useReportStream } from '../hooks/useReportStream';
 // @ts-ignore
-import { getColor, getPalette } from 'colorthief';
+import ColorThief from 'colorthief';
 import {
   Dialog,
   DialogContent,
@@ -41,32 +41,37 @@ function Dashboard() {
 
   // Extract color palette from screenshot image using ColorThief
   useEffect(() => {
-    if (!report?.screenshot_url) {
-      setExtractedColors(null);
-      return;
-    }
+    if (!report?.screenshot_url) return;
+    try {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.src = report.screenshot_url;
+      img.onload = () => {
+        try {
+          const thief = new ColorThief();
+          const dominantRGB = thief.getColor(img);
+          const paletteRGB = thief.getPalette(img, 5); // Extract 5 colors
 
-    const isRemote = report.screenshot_url.startsWith("http");
-    const img = new Image();
-    if (isRemote) {
-      img.crossOrigin = "Anonymous";
-    }
-    img.src = report.screenshot_url;
-    img.onload = async () => {
-      try {
-        const domColor = await getColor(img);
-        const paletteColors = await getPalette(img, { colorCount: 5 });
+          const rgbToHex = (r: number, g: number, b: number) =>
+            "#" + [r, g, b].map(x => {
+              const hex = x.toString(16);
+              return hex.length === 1 ? "0" + hex : hex;
+            }).join("");
 
-        if (domColor && paletteColors) {
+          const dominantHex = rgbToHex(dominantRGB[0], dominantRGB[1], dominantRGB[2]);
+          const paletteHex = paletteRGB.map((rgb: number[]) => rgbToHex(rgb[0], rgb[1], rgb[2]));
+
           setExtractedColors({
-            dominant: domColor.hex(),
-            palette: paletteColors.map(c => c.hex())
+            dominant: dominantHex,
+            palette: paletteHex
           });
+        } catch(e) {
+          console.warn('ColorThief failed:', e);
         }
-      } catch (err) {
-        console.error("ColorThief error:", err);
-      }
-    };
+      };
+    } catch(e) {
+      console.warn('ColorThief setup failed:', e);
+    }
   }, [report?.screenshot_url]);
 
   const { report, status } = useReportStream(activeReportId);

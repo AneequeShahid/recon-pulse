@@ -48,6 +48,32 @@ async def get_report_by_id(report_id: str) -> ReportData:
         raise HTTPException(status_code=404, detail="Report not found")
     return report
 
+from fastapi.responses import StreamingResponse
+import asyncio
+import json
+
+@router.get("/report/{report_id}/stream")
+async def stream_report(report_id: str):
+    async def event_generator():
+        for _ in range(30):  # max 30 polls = 45 seconds
+            report = await get_report(report_id)
+            if report:
+                yield f"data: {report.model_dump_json()}\n\n"
+                if report.status == "complete":
+                    break
+            await asyncio.sleep(1.5)
+        yield "data: {\"status\": \"timeout\"}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
 @root_router.get("/r/{report_id}")
 async def get_report_by_id_root(report_id: str) -> ReportData:
     return await get_report_by_id(report_id)
+

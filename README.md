@@ -37,15 +37,15 @@ Recon Pulse uses a decoupled client-server architecture built for minimal latenc
                                   |            FastAPI Backend            |
                                   +---------------------------------------+
                                     |                 |
-                   4. Cache Lookup  |                 | 5. Concurrent Gather
-                    (24-Hour TTL)   v                 v (Custom Task Timeouts)
-                          +---------------+   +---------------------------------+
-                          |  SQLite DB    |   | 12+ Scanner Services:           |
-                          |  Local Cache  |   | - DNS Resolvers  - Geo IP       |
-                          +---------------+   | - SSL Headers    - PageSpeed    |
-                                              | - Wayback Archive- Puppeteer    |
-                                              | - Email Security - Trackers     |
-                                              +---------------------------------+
+                    4. Cache Lookup  |                 | 5. Concurrent Gather
+                     (24-Hour TTL)   v                 v (Custom Task Timeouts)
+                           +---------------+   +---------------------------------+
+                           | Supabase DB   |   | 12+ Scanner Services:           |
+                           | (SQLite Fall) |   | - DNS Resolvers  - Geo IP       |
+                           +---------------+   | - SSL Headers    - PageSpeed    |
+                                               | - Wayback Archive- Puppeteer    |
+                                               | - Email Security - Trackers     |
+                                               +---------------------------------+
 ```
 
 ---
@@ -70,7 +70,7 @@ Recon Pulse conducts comprehensive multi-threaded scans of any target domain, re
 ## ⚡ Performance Optimizations
 
 1.  **Debounced Prefetching (P1)**: When a user starts typing in the search bar, the client waits 500ms and fires a background `/api/prefetch` request. This runs IP Geolocation and RDAP registration services ahead of time. When the user clicks "Scan", these elements load instantly from the cache.
-2.  **SSE Progressive Stream (F1 & P2)**: Instead of blocking on slow services, the client connects to an EventSource streaming route. As each service completes, the backend updates SQLite, and cards pop in with smooth CSS skeleton shimmers.
+2.  **SSE Progressive Stream (F1 & P2)**: Instead of blocking on slow services, the client connects to an EventSource streaming route. As each service completes, the backend updates the Supabase database (with SQLite fallback), and cards pop in with smooth CSS skeleton shimmers.
 3.  **Task Timeout Tuning (P3)**: All scanner tasks are wrapped in customized timeouts to guarantee speedy runs:
     *   **Fast Tasks (IP, DNS)**: 5-second timeout limit.
     *   **Medium Tasks (GNews, GitHub, Stack)**: 7-second timeout limit.

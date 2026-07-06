@@ -22,27 +22,33 @@ async def fetch_screenshot_and_meta(url: str) -> Optional[PuppeteerResult]:
                     description = inner_data.get("description")
                     logo_url = inner_data.get("logo", {}).get("url")
                     
-                    return PuppeteerResult(
+                    result = PuppeteerResult(
                         screenshot_url=screenshot_url,
                         title=title,
                         description=description,
                         favicon=logo_url
                     )
+                    print(f"[Microlink Success] Resolved screenshot and metadata: {result}")
+                    return result
             
             # Fallback to direct embed URL if JSON call fails
             embed_url = f"https://api.microlink.io/?url={url}&screenshot=true&meta=false&embed=screenshot.url"
-            return PuppeteerResult(
+            result = PuppeteerResult(
                 screenshot_url=embed_url,
                 title=None,
                 description=None,
                 favicon=None
             )
-    except Exception:
+            print(f"[Microlink Fallback] JSON request failed (status={res.status_code}). Using embed URL: {result}")
+            return result
+    except Exception as e:
         # Fallback even on complete timeout/failure
         embed_url = f"https://api.microlink.io/?url={url}&screenshot=true&meta=false&embed=screenshot.url"
-        return PuppeteerResult(
+        result = PuppeteerResult(
             screenshot_url=embed_url,
             title=None,
             description=None,
             favicon=None
         )
+        print(f"[Microlink Exception] Error: {e}. Using fallback embed URL: {result}")
+        return result

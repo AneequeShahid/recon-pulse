@@ -14,6 +14,7 @@ const navItems = [
 export function Dashboard() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [activeCard, setActiveCard] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   
   // Dynamic report polling state
   const [urlInput, setUrlInput] = useState('');
@@ -33,6 +34,74 @@ export function Dashboard() {
   const { report: reportB, status: statusB } = useReportStream(activeReportIdB);
   const [historyList, setHistoryList] = useState<any[]>([]);
 
+  // Dark/Light Mode Toggle state
+  const [theme, setTheme] = useState(() => localStorage.getItem('rp_theme') || 'dark');
+  const isDark = theme === 'dark';
+
+  const toggleTheme = () => {
+    const nextTheme = isDark ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('rp_theme', nextTheme);
+  };
+
+  // Prefetch for urlInput
+  useEffect(() => {
+    if (!urlInput) return;
+    const timer = setTimeout(() => {
+      const target = urlInput.trim();
+      if (target.length > 3) {
+        const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        axios.post(`${apiBaseUrl}/api/prefetch`, { url: target })
+          .catch((err) => console.log("Prefetch error:", err));
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [urlInput]);
+
+  // Prefetch for urlInputB if compareMode
+  useEffect(() => {
+    if (!urlInputB || !compareMode) return;
+    const timer = setTimeout(() => {
+      const target = urlInputB.trim();
+      if (target.length > 3) {
+        const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        axios.post(`${apiBaseUrl}/api/prefetch`, { url: target })
+          .catch((err) => console.log("Prefetch B error:", err));
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [urlInputB, compareMode]);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Focus search bar
+      if ((e.ctrlKey && e.key === 'k') || e.key === '/') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      // Export markdown
+      if (e.ctrlKey && e.key === 'e') {
+        e.preventDefault();
+        handleExport();
+      }
+      // Copy share link
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        handleShare();
+      }
+      // Reset
+      if (e.key === 'Escape') {
+        setUrlInput('');
+        setUrlInputB('');
+        setActiveReportId(null);
+        setActiveReportIdB(null);
+        window.history.pushState(null, '', '/');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [report, activeReportId, urlInput, urlInputB]);
 
   // Load history from localStorage
   useEffect(() => {
@@ -338,7 +407,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
 
   return (
     <div
-      className="min-h-screen flex antialiased text-[#e1e2ec]"
+      className={`min-h-screen flex antialiased transition-colors duration-300 ${isDark ? 'text-[#e1e2ec] bg-[#020205]' : 'text-slate-800 bg-[#f4f5f8] light-mode'}`}
       style={{ fontFamily: "Inter, system-ui, sans-serif" }}
     >
       <style>{`
@@ -372,6 +441,69 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
         }
         .rp-bento:active { transform: translateY(-10px) scale(1.04); }
 
+        /* Skeleton loader rules */
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .skeleton {
+          background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+        }
+        .light-mode .skeleton {
+          background: linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+        }
+
+        /* Light mode overrides */
+        .light-mode .rp-bento {
+          background-color: rgba(255,255,255,0.75) !important;
+          border-color: rgba(0,0,0,0.1) !important;
+          color: #1e293b !important;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+        }
+        .light-mode .rp-bento:hover {
+          border-color: rgba(0,0,0,0.2) !important;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.06);
+        }
+        .light-mode nav {
+          background-color: rgba(255,255,255,0.85) !important;
+          border-color: rgba(0,0,0,0.1) !important;
+        }
+        .light-mode header {
+          background-color: rgba(255,255,255,0.85) !important;
+          border-color: rgba(0,0,0,0.1) !important;
+        }
+        .light-mode input {
+          background-color: rgba(255,255,255,0.9) !important;
+          border-color: rgba(0,0,0,0.15) !important;
+          color: #0f172a !important;
+        }
+        .light-mode input::placeholder {
+          color: #94a3b8 !important;
+        }
+        .light-mode .text-[#c2c6d6], .light-mode .text-slate-400, .light-mode .text-slate-500 {
+          color: #475569 !important;
+        }
+        .light-mode .text-white, .light-mode .text-slate-300 {
+          color: #0f172a !important;
+        }
+        .light-mode .bg-white\/5 {
+          background-color: rgba(0,0,0,0.04) !important;
+        }
+        .light-mode .border-white\/10 {
+          border-color: rgba(0,0,0,0.08) !important;
+        }
+        .light-mode .border-white\/5 {
+          border-color: rgba(0,0,0,0.05) !important;
+        }
+        .light-mode .rp-modal-content {
+          background: rgba(255,255,255,0.95) !important;
+          border-color: rgba(0,0,0,0.1) !important;
+          color: #1e293b !important;
+        }
 
         .mso { font-family:'Material Symbols Outlined'; font-weight:normal; font-style:normal;
           line-height:1; letter-spacing:normal; text-transform:none; display:inline-block;
@@ -460,6 +592,21 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
           </div>
           <div className="flex items-center gap-4">
             <button
+              onClick={toggleTheme}
+              className="border border-white/10 p-2 rounded-lg bg-white/5 text-slate-300 transition-all hover:bg-white/10 cursor-pointer flex items-center justify-center"
+              title="Toggle theme"
+            >
+              {isDark ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+            </button>
+            <button
               onClick={() => setCompareMode(!compareMode)}
               className={`border border-white/10 px-4 py-2 rounded-lg rp-title transition-all hover:bg-white/10 cursor-pointer ${compareMode ? 'bg-blue-600/30 text-blue-400 border-blue-500/50' : 'bg-white/5 text-slate-300'}`}
             >
@@ -500,10 +647,11 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                   <span className="mso animate-pulse">radar</span>
                 </div>
                 <input
+                  ref={searchInputRef}
                   type="text"
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
-                  placeholder="First target domain or IP..."
+                  placeholder="First target domain or IP... (Ctrl+K)"
                   className="w-full border border-white/20 rounded-full py-4 pl-12 pr-6 rp-mono text-[#e1e2ec] focus:outline-none focus:border-blue-500"
                   style={{
                     backgroundColor: "rgba(10,10,10,0.6)",
@@ -720,28 +868,48 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
               </div>
 
               {/* Hosting */}
-              <GlassCard cardKey="hosting" label="Hosting Info" span={6} loading={isLoading}>
-                {!compareMode ? (
-                  <>
-                    <KV k="Provider" v={report?.hosting?.isp || 'Unknown'} />
+              <div data-card="hosting" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-6 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                <SectionLabel>Hosting Info</SectionLabel>
+                {isLoading ? (
+                  <SkeletonLoader lines={3} />
+                ) : !compareMode ? (
+                  <div className="space-y-2 mt-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg font-bold text-white">
+                        {report?.hosting?.provider_name || report?.hosting?.isp || 'Unknown'}
+                      </span>
+                      {report?.hosting?.provider_name && report?.hosting?.provider_name !== "Other" && (
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                          report.hosting.provider_name.includes("AWS") || report.hosting.provider_name.includes("Amazon") ? "bg-orange-500/20 text-orange-400 border border-orange-500/30" :
+                          report.hosting.provider_name.includes("Google") || report.hosting.provider_name.includes("Azure") || report.hosting.provider_name.includes("Microsoft") ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" :
+                          report.hosting.provider_name.includes("Cloudflare") ? "bg-green-500/20 text-green-400 border border-green-500/30" :
+                          "bg-slate-500/20 text-slate-400 border border-slate-500/30"
+                        }`}>
+                          {report.hosting.provider_name.includes("AWS") || report.hosting.provider_name.includes("Amazon") ? "AWS" :
+                           report.hosting.provider_name.includes("Google") ? "GCP" :
+                           report.hosting.provider_name.includes("Azure") ? "Azure" :
+                           report.hosting.provider_name.includes("Cloudflare") ? "Cloudflare" : "Other"}
+                        </span>
+                      )}
+                    </div>
                     <KV k="Location" v={`${report?.hosting?.city || ''}, ${report?.hosting?.country || 'Unknown'}`} />
                     <KV k="IP Address" v={report?.hosting?.ip || 'Unknown'} vClass="text-[#adc6ff]" last />
-                  </>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-4 text-xs rp-mono">
                     <div>
-                      <div className="text-slate-400 mb-1 text-[10px]">A</div>
-                      <KV k="ISP" v={report?.hosting?.isp || 'Unknown'} />
+                      <div className="text-slate-400 mb-1 text-[10px]">A Hosting</div>
+                      <div className="font-semibold text-white truncate">{report?.hosting?.provider_name || report?.hosting?.isp || 'Unknown'}</div>
                       <KV k="IP" v={report?.hosting?.ip || 'Unknown'} last />
                     </div>
                     <div className="border-l border-white/10 pl-4">
-                      <div className="text-slate-400 mb-1 text-[10px]">B</div>
-                      <KV k="ISP" v={reportB?.hosting?.isp || 'Unknown'} />
+                      <div className="text-slate-400 mb-1 text-[10px]">B Hosting</div>
+                      <div className="font-semibold text-white truncate">{reportB?.hosting?.provider_name || reportB?.hosting?.isp || 'Unknown'}</div>
                       <KV k="IP" v={reportB?.hosting?.ip || 'Unknown'} last />
                     </div>
                   </div>
                 )}
-              </GlassCard>
+              </div>
 
 
               {/* Domain Age */}
@@ -863,31 +1031,29 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
               <div data-card="palette" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col min-h-[220px]">
                 <SectionLabel>Extracted Palette</SectionLabel>
                 {isLoading ? (
-                  <div className="text-slate-500 rp-mono text-xs mt-auto">Extracting colors...</div>
+                  <SkeletonLoader lines={3} />
                 ) : !compareMode ? (
                   (extractedColors?.palette && extractedColors.palette.length > 0) ? (
-                    <div className="flex gap-4 mt-auto h-20">
-                      {extractedColors.palette.map((c: string) => (
-                        <div 
-                          key={c} 
-                          className="flex-1 rounded-lg border border-white/20 relative group overflow-hidden cursor-pointer"
-                          style={{ backgroundColor: c, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(c);
-                            setCopiedHex(c);
-                            setTimeout(() => setCopiedHex(null), 2000);
-                          }}
-                        >
-                          <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity backdrop-blur-sm">
-                            <span className="rp-mono text-white text-xs select-all">{c}</span>
-                            <span className="text-[10px] text-slate-400 mt-1">Click to copy</span>
+                    <div className="flex gap-4 mt-auto">
+                      {extractedColors.palette.slice(0, 5).map((c: string) => (
+                        <div key={c} className="flex-1 flex flex-col items-center">
+                          <div 
+                            className="w-full h-12 rounded-lg border border-white/20 relative group overflow-hidden cursor-pointer"
+                            style={{ backgroundColor: c, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(c);
+                              setCopiedHex(c);
+                              setTimeout(() => setCopiedHex(null), 2000);
+                            }}
+                          >
+                            {copiedHex === c && (
+                              <div className="absolute inset-0 bg-green-600/90 flex items-center justify-center text-white text-[10px] font-bold rp-mono">
+                                Copied!
+                              </div>
+                            )}
                           </div>
-                          {copiedHex === c && (
-                            <div className="absolute inset-0 bg-green-600/90 flex items-center justify-center text-white text-xs font-bold rp-mono">
-                              Copied!
-                            </div>
-                          )}
+                          <span className="text-[10px] text-slate-400 mt-1 select-all rp-mono">{c}</span>
                         </div>
                       ))}
                     </div>
@@ -1209,7 +1375,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
               <div data-card="fonts" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
                 <SectionLabel>Google Fonts</SectionLabel>
                 {isLoading ? (
-                  <div className="text-slate-500 rp-mono text-xs">Analyzing styles...</div>
+                  <SkeletonLoader lines={3} />
                 ) : !compareMode ? (
                   (report?.tech_stack?.fonts || []).length > 0 ? (
                     <div className="flex flex-wrap gap-1.5 mt-auto max-h-[100px] overflow-y-auto">
@@ -1236,6 +1402,79 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 )}
               </div>
 
+              {/* HTTP Version */}
+              <div data-card="http_version" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                <SectionLabel>HTTP Protocol Support</SectionLabel>
+                {isLoading ? (
+                  <SkeletonLoader lines={3} />
+                ) : !compareMode ? (
+                  <div className="space-y-1 mt-2 text-xs rp-mono">
+                    <div className="flex justify-between items-center border-b border-white/5 pb-1">
+                      <span>HTTP/1.1</span>
+                      <span className="text-green-400 font-semibold">✓ Yes</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-white/5 pb-1">
+                      <span>HTTP/2</span>
+                      <span className={report?.http_version?.http2 ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
+                        {report?.http_version?.http2 ? "✓ Yes" : "✗ No"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pb-1">
+                      <span>HTTP/3 (QUIC)</span>
+                      <span className={report?.http_version?.http3 ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
+                        {report?.http_version?.http3 ? "✓ Yes" : "✗ No"}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 text-[10px] rp-mono mt-auto">
+                    <div>
+                      <div className="text-slate-400 mb-1">A HTTP Support</div>
+                      <div className="text-slate-300">HTTP/2: {report?.http_version?.http2 ? '✓' : '✗'}</div>
+                      <div className="text-slate-300">HTTP/3: {report?.http_version?.http3 ? '✓' : '✗'}</div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1">B HTTP Support</div>
+                      <div className="text-slate-300">HTTP/2: {reportB?.http_version?.http2 ? '✓' : '✗'}</div>
+                      <div className="text-slate-300">HTTP/3: {reportB?.http_version?.http3 ? '✓' : '✗'}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Robots.txt */}
+              <div data-card="robots" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                <SectionLabel>Robots & Sitemap</SectionLabel>
+                {isLoading ? (
+                  <SkeletonLoader lines={3} />
+                ) : !compareMode ? (
+                  <div className="mt-2">
+                    <pre className="text-[10px] rp-mono text-slate-300 bg-black/30 p-2 rounded max-h-[80px] overflow-hidden whitespace-pre-wrap">
+                      {report?.robots?.robots_txt || 'No robots.txt detected'}
+                    </pre>
+                    {report?.robots?.robots_txt && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setActiveCard('robots'); }}
+                        className="mt-2 text-[10px] text-blue-400 hover:underline cursor-pointer"
+                      >
+                        View Full Robots.txt
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 text-[10px] rp-mono mt-auto">
+                    <div>
+                      <div className="text-slate-400 mb-1">A Robots</div>
+                      <div className="text-slate-300">{report?.robots?.robots_txt ? 'Available' : 'N/A'}</div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1">B Robots</div>
+                      <div className="text-slate-300">{reportB?.robots?.robots_txt ? 'Available' : 'N/A'}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
 
             </div>
           )}
@@ -1245,6 +1484,20 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
       <CardDetailModal cardKey={activeCard} report={report} extractedColors={extractedColors} onClose={() => setActiveCard(null)} />
     </div>
 
+  );
+}
+
+function SkeletonLoader({ lines = 3 }: { lines?: number }) {
+  return (
+    <div className="space-y-3 w-full mt-4">
+      {Array.from({ length: lines }).map((_, i) => (
+        <div 
+          key={i} 
+          className="h-4 rounded skeleton" 
+          style={{ width: i === lines - 1 ? '60%' : '100%' }} 
+        />
+      ))}
+    </div>
   );
 }
 
@@ -1526,6 +1779,20 @@ const getCardDetails = (report: any, extractedColors: any): Record<string, Detai
           k: f,
           v: "Active"
         }))}
+      ]
+    },
+    robots: {
+      title: "Robots.txt & Sitemap",
+      subtitle: "Robots rules and sitemap discovery",
+      icon: "smart_toy",
+      sections: [
+        { label: "Configuration", rows: [
+          { k: "Sitemap URL", v: report?.robots?.sitemap_url || "Not declared" },
+          { k: "Has Sitemap", v: report?.robots?.has_sitemap ? "Yes" : "No" }
+        ]},
+        { label: "Robots.txt Content", rows: [
+          { k: "Raw content", v: report?.robots?.robots_txt || "None" }
+        ]}
       ]
     }
 

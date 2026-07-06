@@ -2,12 +2,18 @@ import httpx
 from app.models import DomainInfo
 from datetime import datetime
 
+_cache = {}
+
 async def fetch_domain_info(domain: str) -> DomainInfo:
+    if domain in _cache:
+        return _cache[domain]
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             res = await client.get(f"https://rdap.org/domain/{domain}")
             if res.status_code != 200:
-                return DomainInfo()
+                res_info = DomainInfo()
+                _cache[domain] = res_info
+                return res_info
             data = res.json()
             created = next(
                 (e["eventDate"] for e in data.get("events", [])
@@ -36,12 +42,16 @@ async def fetch_domain_info(domain: str) -> DomainInfo:
                 except Exception:
                     pass
 
-            return DomainInfo(
+            res_info = DomainInfo(
                 registrar=registrar,
                 created=created[:10] if created else None,
                 expires=expires[:10] if expires else None,
                 age_days=age,
                 nameservers=[ns["ldhName"] for ns in data.get("nameservers", []) if "ldhName" in ns]
             )
+            _cache[domain] = res_info
+            return res_info
     except Exception:
-        return DomainInfo()
+        res_info = DomainInfo()
+        _cache[domain] = res_info
+        return res_info

@@ -41,6 +41,27 @@ async def create_report(
 
     return {"report_id": report_id, "cached": False}
 
+@router.post("/prefetch")
+async def prefetch_domain(
+    req: ReportRequest,
+    background_tasks: BackgroundTasks
+):
+    url = req.url.strip()
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+        
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    domain = parsed.netloc.replace("www.", "")
+    if not domain:
+        domain = parsed.path.replace("www.", "").split("/")[0]
+
+    from app.services import rdap_service, ip_service
+    background_tasks.add_task(rdap_service.fetch_domain_info, domain)
+    background_tasks.add_task(ip_service.fetch_hosting_info, domain)
+
+    return {"status": "prefetching"}
+
 @router.get("/report/{report_id}")
 async def get_report_by_id(report_id: str) -> ReportData:
     report = await get_report(report_id)

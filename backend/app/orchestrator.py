@@ -24,8 +24,7 @@ async def run_report(report_id: str, url: str) -> None:
         created_at=datetime.now(),
         status="pending"
     )
-
-    # Fire all scanner services in parallel (all configured with a 10s maximum timeout)
+    print("[ORCHESTRATOR] calling puppeteer service")
     results = await asyncio.gather(
         puppeteer_service.fetch_screenshot_and_meta(url),
         wappalyzer_service.fetch_tech_stack(url),

@@ -9,8 +9,29 @@ on:
     - cron: '0 6 * * 1'  # Every Monday at 6 AM UTC
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Run test suite
+        run: |
+          cd backend
+          PYTHONPATH=. pytest tests/ -q
+
   scan:
     runs-on: ubuntu-latest
+    if: ${{ secrets.RP_API_URL != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -21,7 +42,7 @@ jobs:
 
       - name: Run Recon Pulse Scan
         env:
-          RP_API_URL: ${{ secrets.RP_API_URL || 'http://localhost:8000' }}
+          RP_API_URL: ${{ secrets.RP_API_URL }}
           RP_SCORE_THRESHOLD: ${{ vars.RP_SCORE_THRESHOLD || '70' }}
           RP_WORKSPACE_ID: ci-${{ github.sha }}
         run: |

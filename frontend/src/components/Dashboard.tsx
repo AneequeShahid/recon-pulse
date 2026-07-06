@@ -20,8 +20,10 @@ export function Dashboard() {
   const [activeReportId, setActiveReportId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedHex, setCopiedHex] = useState<string | null>(null);
 
   const [extractedColors, setExtractedColors] = useState<{ dominant: string; palette: string[] } | null>(null);
+
 
   const { report, status } = useReportStream(activeReportId);
 
@@ -520,17 +522,33 @@ export function Dashboard() {
                 <SectionLabel>Extracted Palette</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs mt-auto">Extracting colors...</div>
-                ) : (extractedColors?.palette && extractedColors.palette.length > 0) ? (
+                                ) : (extractedColors?.palette && extractedColors.palette.length > 0) ? (
                   <div className="flex gap-4 mt-auto h-20">
                     {extractedColors.palette.map((c: string) => (
-                      <div key={c} className="flex-1 rounded-lg border border-white/20 relative group overflow-hidden"
-                           style={{ backgroundColor: c, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-sm">
-                          <span className="rp-mono text-white text-xs">{c}</span>
+                      <div 
+                        key={c} 
+                        className="flex-1 rounded-lg border border-white/20 relative group overflow-hidden cursor-pointer"
+                        style={{ backgroundColor: c, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(c);
+                          setCopiedHex(c);
+                          setTimeout(() => setCopiedHex(null), 2000);
+                        }}
+                      >
+                        <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity backdrop-blur-sm">
+                          <span className="rp-mono text-white text-xs select-all">{c}</span>
+                          <span className="text-[10px] text-slate-400 mt-1">Click to copy</span>
                         </div>
+                        {copiedHex === c && (
+                          <div className="absolute inset-0 bg-green-600/90 flex items-center justify-center text-white text-xs font-bold rp-mono">
+                            Copied!
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
+
                 ) : (
                   <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No palette available</div>
                 )}

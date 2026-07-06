@@ -68,6 +68,13 @@ class RedirectChain(BaseModel):
     hops: List[RedirectHop] = []
     total: int = 0
 
+class EmailSecurity(BaseModel):
+    spf: bool
+    dmarc: bool
+    dkim: bool
+    spf_record: Optional[str] = None
+    dmarc_record: Optional[str] = None
+
 class ReportData(BaseModel):
     id: str
     url: str
@@ -87,6 +94,8 @@ class ReportData(BaseModel):
     traffic: Optional[TrafficInfo] = None
     dns_records: Optional[Dict[str, Any]] = None
     redirect_chain: Optional[RedirectChain] = None
+    email_security: Optional[EmailSecurity] = None
     created_at: datetime
     status: str  # "pending" | "partial" | "complete" | "error"
+
 

@@ -2,14 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import axios from 'axios';
 import { useReportStream } from '../hooks/useReportStream';
 
-const SCREENSHOT_URL =
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuC2vEGC_S9BUXrG2ziZ9w53jpX96rqLVUit28pau-6NuJd_QnBuQpTnKt73r4xroLE6xl7wZFSk6m9DMi33dpGIujnIId_9C8VnZkZ5EnipMKDfXdkvD8s65f5nSBp4YC7AphZsdi95Fcd-7GXnBiWrL3tppTe8XARxc6KhUfmhOn68RWOmeozxerB3sFd5GQaB0da6kytTblW392FDH8b9GH1oQTF-Hb3n6NMUTm5hP0Kkd7kfFZh3_w";
 const AVATAR_URL =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuAyu8MpVA8eQoO2NaGUTP0oUdhDvx9ZR3Tkmgv4MHUW9rOsq72J13d3DjW0_cAu7njxxO-4uFiMQ5i73UOkMm_iEEUWwEXGNo_V7YjqwoW2TBq3Tqtg-33boBRUeWyhnptsvTaAN7lmq16W2t5uf08KCEVdVcpYVDnVL8Cj6ZSprDV-dXhG-KuvjLQxKw45zbRAjCPZIFSyXoWfjJRwElWv6TBqDUTnJkrKjNTyl1veFGZ2N8tlSNhkVw";
 
 const PRIMARY = "#adc6ff";
 
-const navItems: { icon: string; label: string; active?: boolean }[] = [
+const navItems = [
   { icon: "dashboard", label: "Overview", active: true },
 ];
 
@@ -24,6 +22,8 @@ export function Dashboard() {
   const [copied, setCopied] = useState(false);
 
   const [extractedColors, setExtractedColors] = useState<{ dominant: string; palette: string[] } | null>(null);
+
+  const { report, status } = useReportStream(activeReportId);
 
   // Extract color palette from screenshot image using Canvas
   useEffect(() => {
@@ -58,8 +58,6 @@ export function Dashboard() {
     };
     img.src = report.screenshot_url;
   }, [report?.screenshot_url]);
-
-  const { report, status } = useReportStream(activeReportId);
 
   // Auto load report from path on mount
   useEffect(() => {
@@ -560,7 +558,7 @@ export function Dashboard() {
                     {report?.dns_records?.MX?.[0] && <DnsRow t="MX" v={report?.dns_records?.MX?.[0]} last />}
                   </>
                 ) : (
-                  <div className="text-on-surface-variant text-xs rp-mono">No DNS resolved</div>
+                  <div className="text-[#c2c6d6] text-xs rp-mono">No DNS resolved</div>
                 )}
               </GlassCard>
 
@@ -824,7 +822,6 @@ const getCardDetails = (report: any, extractedColors: any): Record<string, Detai
   };
 };
 
-/** Native HTML modal — zero Radix, zero shadcn, zero external deps */
 function CardDetailModal({ cardKey, report, extractedColors, onClose }: { cardKey: string | null; report: any; extractedColors: any; onClose: () => void }) {
   const details = getCardDetails(report, extractedColors);
   const detail = cardKey ? details[cardKey] : null;
@@ -903,3 +900,5 @@ function CardDetailModal({ cardKey, report, extractedColors, onClose }: { cardKe
     </div>
   );
 }
+
+export default Dashboard;

@@ -33,24 +33,30 @@ export function Dashboard() {
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
-        canvas.width = 10;
-        canvas.height = 10;
+        canvas.width = 50;
+        canvas.height = 50;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-        ctx.drawImage(img, 0, 0, 10, 10);
-        const colors: string[] = [];
-        for (let i = 0; i < 5; i++) {
-          const x = Math.floor((i / 5) * 10);
-          const [r, g, b] = ctx.getImageData(x, 0, 1, 1).data;
-          const rgbToHex = (num: number) => {
-            const hex = num.toString(16);
-            return hex.length === 1 ? "0" + hex : hex;
-          };
-          colors.push(`#${rgbToHex(r)}${rgbToHex(g)}${rgbToHex(b)}`);
+        ctx.drawImage(img, 0, 0, 50, 50);
+        const imageData = ctx.getImageData(0, 0, 50, 50).data;
+        const colorMap: Record<string, number> = {};
+        for (let i = 0; i < imageData.length; i += 4) {
+          const r = Math.round(imageData[i] / 32) * 32;
+          const g = Math.round(imageData[i+1] / 32) * 32;
+          const b = Math.round(imageData[i+2] / 32) * 32;
+          const key = `${r},${g},${b}`;
+          colorMap[key] = (colorMap[key] || 0) + 1;
         }
+        const sorted = Object.entries(colorMap)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 6)
+          .map(([key]) => {
+            const [r, g, b] = key.split(',');
+            return `#${parseInt(r).toString(16).padStart(2, '0')}${parseInt(g).toString(16).padStart(2, '0')}${parseInt(b).toString(16).padStart(2, '0')}`;
+          });
         setExtractedColors({
-          dominant: colors[0],
-          palette: colors
+          dominant: sorted[0] || '#000000',
+          palette: sorted
         });
       } catch(e) {
         console.warn('color extraction failed', e);

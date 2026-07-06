@@ -59,6 +59,15 @@ class TrafficInfo(BaseModel):
     tranco_rank: Optional[int] = None
     rank_label: Optional[str] = None
 
+class RedirectHop(BaseModel):
+    url: str
+    status: int
+    location: Optional[str] = None
+
+class RedirectChain(BaseModel):
+    hops: List[RedirectHop] = []
+    total: int = 0
+
 class ReportData(BaseModel):
     id: str
     url: str
@@ -77,5 +86,7 @@ class ReportData(BaseModel):
     carbon: Optional[CarbonInfo] = None
     traffic: Optional[TrafficInfo] = None
     dns_records: Optional[Dict[str, Any]] = None
+    redirect_chain: Optional[RedirectChain] = None
     created_at: datetime
     status: str  # "pending" | "partial" | "complete" | "error"
+

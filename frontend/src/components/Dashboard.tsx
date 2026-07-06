@@ -21,6 +21,8 @@ export function Dashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
+  const [exported, setExported] = useState(false);
+
 
   const [extractedColors, setExtractedColors] = useState<{ dominant: string; palette: string[] } | null>(null);
 
@@ -145,6 +147,38 @@ export function Dashboard() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const handleExport = () => {
+    if (!report) return;
+    const md = `
+# Recon Pulse Report: ${report.url}
+Generated: ${new Date().toLocaleDateString()}
+
+## Security
+- SSL Grade: ${report.security?.ssl_grade || 'N/A'}
+- HTTPS: ${report.security?.https ? '✓' : '✗'}
+- SPF: ${report.email_security?.spf ? '✓' : '✗'}
+- DMARC: ${report.email_security?.dmarc ? '✓' : '✗'}
+
+## Performance
+- Score: ${report.performance?.performance_score || 'N/A'}/100
+
+## Tech Stack
+${report.tech_stack?.technologies?.join(', ') || 'None detected'}
+
+## Hosting
+- IP: ${report.hosting?.ip || 'N/A'}
+- ISP: ${report.hosting?.isp || 'N/A'}
+- Location: ${report.hosting?.city || ''}, ${report.hosting?.country || ''}
+
+## Traffic Rank
+${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'})
+`;
+    navigator.clipboard.writeText(md.trim());
+    setExported(true);
+    setTimeout(() => setExported(false), 2000);
+  };
+
 
   const isLoading = status === 'pending';
 
@@ -355,14 +389,24 @@ export function Dashboard() {
           </div>
           <div className="flex items-center gap-4">
             {activeReportId && (
-              <button
-                onClick={handleShare}
-                className="border border-white/10 px-4 py-2 rounded-lg rp-title transition-all hover:bg-white/10 cursor-pointer"
-                style={{ backgroundColor: "rgba(255,255,255,0.05)", color: PRIMARY }}
-              >
-                {copied ? '✓ Copied' : 'Share Report'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExport}
+                  className="border border-white/10 px-4 py-2 rounded-lg rp-title transition-all hover:bg-white/10 cursor-pointer"
+                  style={{ backgroundColor: "rgba(255,255,255,0.05)", color: PRIMARY }}
+                >
+                  {exported ? '✓ Exported' : 'Export'}
+                </button>
+                <button
+                  onClick={handleShare}
+                  className="border border-white/10 px-4 py-2 rounded-lg rp-title transition-all hover:bg-white/10 cursor-pointer"
+                  style={{ backgroundColor: "rgba(255,255,255,0.05)", color: PRIMARY }}
+                >
+                  {copied ? '✓ Copied' : 'Share Report'}
+                </button>
+              </div>
             )}
+
             <div className="w-8 h-8 rounded-full border border-white/20 overflow-hidden" style={{ boxShadow: "0 0 10px rgba(173,198,255,0.2)" }}>
               <img alt="Analyst avatar" className="w-full h-full object-cover" src={AVATAR_URL} />
             </div>

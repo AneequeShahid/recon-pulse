@@ -85,6 +85,11 @@ class SocialPresence(BaseModel):
     facebook: bool = False
     youtube: bool = False
 
+class WaybackInfo(BaseModel):
+    first_seen: Optional[str] = None
+    latest_snapshot: Optional[str] = None
+    available: bool = False
+
 class ReportData(BaseModel):
     id: str
     url: str
@@ -106,8 +111,10 @@ class ReportData(BaseModel):
     redirect_chain: Optional[RedirectChain] = None
     email_security: Optional[EmailSecurity] = None
     social: Optional[SocialPresence] = None
+    wayback: Optional[WaybackInfo] = None
     created_at: datetime
     status: str  # "pending" | "partial" | "complete" | "error"
+
 
 
 

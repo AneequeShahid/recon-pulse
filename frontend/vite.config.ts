@@ -6,6 +6,13 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'pdf-export': ['jspdf', 'html2canvas'],
+        },
+      },
+    },
   },
   resolve: {
     alias: {

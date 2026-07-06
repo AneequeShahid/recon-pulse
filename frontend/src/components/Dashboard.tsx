@@ -628,11 +628,14 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
       {/* Side nav */}
       <nav className="hidden md:flex flex-col h-screen py-6 px-4 fixed left-0 w-64 z-40 border-r border-white/10"
            style={{ backgroundColor: "rgba(10,10,10,0.4)", backdropFilter: "blur(24px) saturate(180%)" }}>
-        <div className="mb-8 px-4">
-          <h1 className="rp-headline tracking-tighter" style={{ color: PRIMARY, textShadow: "0 2px 4px rgba(0,0,0,0.8)" }}>
-            RECON_PULSE
-          </h1>
-          <p className="rp-label text-[#c2c6d6] mt-1">Active Session</p>
+        <div className="mb-8 px-4 flex items-center gap-3">
+          <img src="/favicon-32x32.png" alt="Recon Pulse Logo" className="w-8 h-8 object-contain" />
+          <div>
+            <h1 className="rp-title font-bold text-white tracking-tight" style={{ textShadow: "0 2px 4px rgba(0,0,0,0.8)" }}>
+              RECON PULSE
+            </h1>
+            <p className="text-[10px] text-slate-400 rp-mono tracking-wider">THREAT INTEL</p>
+          </div>
         </div>
         <button
           onClick={() => { setActiveReportId(null); setUrlInput(''); window.history.pushState(null, '', '/'); }}
@@ -641,22 +644,18 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
         >
           New Scan
         </button>
-        <ul className="flex-1 space-y-2">
+        <ul className="flex-1 space-y-2 overflow-y-auto">
           {navItems.map((n) => (
             <li key={n.label}>
               <a
                 href="#"
-                className={
-                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 " +
-                  (n.active
-                    ? "border"
-                    : "text-[#c2c6d6] hover:bg-white/5 hover:text-[#adc6ff]")
-                }
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/5 transition-all duration-300"
                 style={
                   n.active
                     ? {
-                        backgroundColor: "rgba(173,198,255,0.2)",
+                        backgroundColor: "rgba(173,198,255,0.1)",
                         color: PRIMARY,
+                        border: "1px solid rgba(173,198,255,0.2)",
                         borderColor: "rgba(173,198,255,0.3)",
                         boxShadow: "0 0 15px rgba(173,198,255,0.1)",
                       }
@@ -677,7 +676,10 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
           style={{ backgroundColor: "rgba(10,10,10,0.4)", backdropFilter: "blur(24px) saturate(180%)" }}
         >
           <div className="flex items-center gap-4">
-            <h2 className="rp-headline md:hidden" style={{ color: PRIMARY }}>Recon Pulse</h2>
+            <div className="flex items-center gap-2.5 md:hidden">
+              <img src="/favicon-32x32.png" alt="Recon Pulse Logo" className="w-6 h-6 object-contain" />
+              <span className="rp-title font-bold text-white tracking-tight">Recon Pulse</span>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <button
@@ -2038,6 +2040,93 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                     <div className="flex justify-between">
                       <span className="text-slate-400">Leaked Subdomains</span>
                       <span className={report.darkweb.leaked_subdomains?.length > 0 ? 'text-red-400 font-semibold' : 'text-green-400'}>{report.darkweb.leaked_subdomains?.length || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Findings Severity Table */}
+              {(report?.findings?.length ?? 0) > 0 && (
+                <div
+                  className="rp-bento col-span-1 md:col-span-12 rounded-xl p-6 flex flex-col min-h-[220px]"
+                  style={{ border: "1px solid rgba(239,68,68,0.15)", boxShadow: "0 0 24px rgba(239,68,68,0.04)" }}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center border"
+                        style={{ backgroundColor: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.3)" }}
+                      >
+                        <span className="mso text-base" style={{ color: "#ef4444" }}>security</span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-white">Active Findings</div>
+                        <div className="text-[10px] text-slate-400 rp-mono">
+                          {report.findings.filter((f: any) => f.severity === 'Critical').length} critical · {report.findings.filter((f: any) => f.severity === 'High').length} high · {report.findings.filter((f: any) => f.severity === 'Medium').length} medium
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {['Critical','High','Medium','Low'].map(sev => {
+                        const count = report.findings.filter((f: any) => f.severity === sev).length;
+                        if (!count) return null;
+                        const colors: Record<string, string> = { Critical: '#ef4444', High: '#f97316', Medium: '#f59e0b', Low: '#6b7280' };
+                        const c = colors[sev];
+                        return (
+                          <span key={sev} className="text-[10px] px-2 py-0.5 rounded rp-mono font-semibold"
+                            style={{ backgroundColor: `${c}18`, color: c, border: `1px solid ${c}33` }}>
+                            {sev}: {count}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Table */}
+                  <div className="rounded-lg border border-white/10 overflow-hidden">
+                    <div className="grid grid-cols-12 gap-0 bg-white/5 px-4 py-2 text-[10px] text-slate-400 rp-mono uppercase tracking-wide">
+                      <div className="col-span-1">Severity</div>
+                      <div className="col-span-5">Title</div>
+                      <div className="col-span-3">Source</div>
+                      <div className="col-span-2">MITRE</div>
+                      <div className="col-span-1 text-right">Status</div>
+                    </div>
+                    <div className="divide-y divide-white/5 max-h-[240px] overflow-y-auto">
+                      {[...report.findings]
+                        .sort((a: any, b: any) => {
+                          const order: Record<string,number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4 };
+                          return (order[a.severity] ?? 5) - (order[b.severity] ?? 5);
+                        })
+                        .map((finding: any, i: number) => {
+                          const colors: Record<string,string> = { Critical: '#ef4444', High: '#f97316', Medium: '#f59e0b', Low: '#6b7280', Info: '#3b82f6' };
+                          const c = colors[finding.severity] || '#6b7280';
+                          return (
+                            <div key={finding.id || i} className="grid grid-cols-12 gap-0 px-4 py-2.5 text-xs hover:bg-white/[0.03] transition-colors items-center">
+                              <div className="col-span-1">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold rp-mono"
+                                  style={{ backgroundColor: `${c}18`, color: c, border: `1px solid ${c}30` }}>
+                                  {finding.severity?.[0] || '?'}
+                                </span>
+                              </div>
+                              <div className="col-span-5 text-white font-medium truncate pr-3">{finding.title}</div>
+                              <div className="col-span-3 text-slate-400 rp-mono text-[10px] truncate">{finding.source || '—'}</div>
+                              <div className="col-span-2">
+                                {finding.mitre_technique_id ? (
+                                  <span className="text-[9px] rp-mono px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                    {finding.mitre_technique_id}
+                                  </span>
+                                ) : <span className="text-slate-600 text-[10px]">—</span>}
+                              </div>
+                              <div className="col-span-1 text-right">
+                                {finding.is_promoted ? (
+                                  <span className="text-[9px] rp-mono text-purple-400">In Case</span>
+                                ) : (
+                                  <span className="text-[9px] rp-mono text-slate-500">Open</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
                 </div>

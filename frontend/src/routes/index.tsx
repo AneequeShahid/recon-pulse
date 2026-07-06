@@ -2,8 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import axios from 'axios';
 import { useReportStream } from '../hooks/useReportStream';
-// @ts-ignore
-import ColorThief from 'colorthief';
 import {
   Dialog,
   DialogContent,
@@ -39,39 +37,38 @@ function Dashboard() {
 
   const [extractedColors, setExtractedColors] = useState<{ dominant: string; palette: string[] } | null>(null);
 
-  // Extract color palette from screenshot image using ColorThief
+  // Extract color palette from screenshot image using Canvas
   useEffect(() => {
     if (!report?.screenshot_url) return;
-    try {
-      const img = new Image();
-      img.crossOrigin = 'Anonymous';
-      img.src = report.screenshot_url;
-      img.onload = () => {
-        try {
-          const thief = new ColorThief();
-          const dominantRGB = thief.getColor(img);
-          const paletteRGB = thief.getPalette(img, 5); // Extract 5 colors
-
-          const rgbToHex = (r: number, g: number, b: number) =>
-            "#" + [r, g, b].map(x => {
-              const hex = x.toString(16);
-              return hex.length === 1 ? "0" + hex : hex;
-            }).join("");
-
-          const dominantHex = rgbToHex(dominantRGB[0], dominantRGB[1], dominantRGB[2]);
-          const paletteHex = paletteRGB.map((rgb: number[]) => rgbToHex(rgb[0], rgb[1], rgb[2]));
-
-          setExtractedColors({
-            dominant: dominantHex,
-            palette: paletteHex
-          });
-        } catch(e) {
-          console.warn('ColorThief failed:', e);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 10;
+        canvas.height = 10;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, 10, 10);
+        const colors: string[] = [];
+        for (let i = 0; i < 5; i++) {
+          const x = Math.floor((i / 5) * 10);
+          const [r, g, b] = ctx.getImageData(x, 0, 1, 1).data;
+          const rgbToHex = (num: number) => {
+            const hex = num.toString(16);
+            return hex.length === 1 ? "0" + hex : hex;
+          };
+          colors.push(`#${rgbToHex(r)}${rgbToHex(g)}${rgbToHex(b)}`);
         }
-      };
-    } catch(e) {
-      console.warn('ColorThief setup failed:', e);
-    }
+        setExtractedColors({
+          dominant: colors[0],
+          palette: colors
+        });
+      } catch(e) {
+        console.warn('color extraction failed', e);
+      }
+    };
+    img.src = report.screenshot_url;
   }, [report?.screenshot_url]);
 
   const { report, status } = useReportStream(activeReportId);

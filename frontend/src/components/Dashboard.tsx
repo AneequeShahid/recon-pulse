@@ -54,6 +54,15 @@ export function Dashboard() {
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [showIntegrations, setShowIntegrations] = useState(false);
   const [integrationKeys, setIntegrationKeys] = useState<any>(() => getIntegrationKeys());
+  const [configHealth, setConfigHealth] = useState<any>(null);
+
+  // Fetch API configurations status
+  useEffect(() => {
+    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    axios.get(`${apiBaseUrl}/api/enterprise/health/config`)
+      .then((res) => setConfigHealth(res.data))
+      .catch((err) => console.log("Config health fetch failed:", err));
+  }, []);
 
   // Dark/Light Mode Toggle state
   const [theme, setTheme] = useState(() => localStorage.getItem('rp_theme') || 'dark');
@@ -2203,7 +2212,45 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
               </div>
             </div>
             <div className="p-6 space-y-6">
-              <p className="text-xs text-slate-400 rp-mono mb-2">Credentials are stored encrypted in your browser and sent directly to the API — never stored on the server.</p>
+              {/* Server-Side API Status Checklist */}
+              <div className="border border-white/10 rounded-lg p-4 bg-white/5">
+                <h3 className="text-sm font-semibold text-amber-400 mb-3 flex items-center gap-2">
+                  <span className="mso text-base">cloud_done</span>
+                  Server API Status (Render)
+                </h3>
+                {configHealth ? (
+                  <div className="grid grid-cols-2 gap-3 text-xs rp-mono">
+                    <div className="flex items-center justify-between bg-black/20 p-2 rounded">
+                      <span className="text-slate-400">Shodan Engine</span>
+                      <span className={configHealth.shodan_enabled ? 'text-green-400 font-bold' : 'text-red-400 font-bold'}>
+                        {configHealth.shodan_enabled ? '✓ Enabled' : '✕ Disabled'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between bg-black/20 p-2 rounded">
+                      <span className="text-slate-400">Discord Alerts</span>
+                      <span className={configHealth.discord_enabled ? 'text-green-400 font-bold' : 'text-red-400 font-bold'}>
+                        {configHealth.discord_enabled ? '✓ Enabled' : '✕ Disabled'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between bg-black/20 p-2 rounded">
+                      <span className="text-slate-400">Supabase DB</span>
+                      <span className={configHealth.supabase_connected ? 'text-green-400 font-bold' : 'text-red-400 font-bold'}>
+                        {configHealth.supabase_connected ? '✓ Connected' : '✕ SQLite fallback'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between bg-black/20 p-2 rounded">
+                      <span className="text-slate-400">Template Scanner</span>
+                      <span className={configHealth.template_scanner ? 'text-green-400 font-bold' : 'text-red-400 font-bold'}>
+                        {configHealth.template_scanner ? '✓ Active' : '✕ Inactive'}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-500 rp-mono animate-pulse">Checking configurations health...</div>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-400 rp-mono mb-2">Credentials below are stored encrypted in your browser and sent directly to the API — never stored on the server.</p>
               {/* Jira */}
               <div className="border border-white/10 rounded-lg p-4 bg-white/5">
                 <h3 className="text-sm font-semibold text-blue-400 mb-3">Jira</h3>

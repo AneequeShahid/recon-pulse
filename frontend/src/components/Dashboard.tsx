@@ -372,11 +372,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
         }
         .rp-bento:active { transform: translateY(-10px) scale(1.04); }
 
-        .rp-glass-overlay {
-          backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-          background-color: rgba(15,15,15,0.75); transition: opacity .3s ease;
-        }
-        .rp-glass:hover .rp-glass-overlay { opacity:0; pointer-events:none; }
+
         .mso { font-family:'Material Symbols Outlined'; font-weight:normal; font-style:normal;
           line-height:1; letter-spacing:normal; text-transform:none; display:inline-block;
           white-space:nowrap; word-wrap:normal; direction:ltr; -webkit-font-feature-settings:'liga'; -webkit-font-smoothing:antialiased; }
@@ -724,7 +720,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
               </div>
 
               {/* Hosting */}
-              <GlassCard cardKey="hosting" label="Hosting Info" icon="lock" title="Classified Host Data" span={6} loading={isLoading}>
+              <GlassCard cardKey="hosting" label="Hosting Info" span={6} loading={isLoading}>
                 {!compareMode ? (
                   <>
                     <KV k="Provider" v={report?.hosting?.isp || 'Unknown'} />
@@ -955,7 +951,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
               </div>
 
               {/* DNS */}
-              <GlassCard cardKey="dns" label="DNS Records" icon="dns" title="Protected Zone Data" span={5} loading={isLoading}>
+              <GlassCard cardKey="dns" label="DNS Records" span={5} loading={isLoading}>
                 {!compareMode ? (
                   report?.dns_records?.A ? (
                     <>
@@ -1275,39 +1271,24 @@ function DnsRow({ t, v, last }: { t: string; v: string; last?: boolean }) {
   );
 }
 function GlassCard({
-  label, icon, title, span, children, cardKey, loading,
-}: { label: string; icon: string; title: string; span: number; children: React.ReactNode; cardKey: string; loading?: boolean }) {
-  const [revealed, setRevealed] = useState(false);
+  label, span, children, cardKey, loading,
+}: { label: string; span: number; children: React.ReactNode; cardKey: string; loading?: boolean }) {
   const spanClass = span === 6 ? "md:col-span-6" : span === 5 ? "md:col-span-5" : "md:col-span-4";
   
   return (
-    <div data-card={cardKey} role="button" tabIndex={0} className={`rp-bento rp-glass col-span-1 ${spanClass} rounded-xl p-6 relative flex flex-col justify-center`}>
+    <div data-card={cardKey} role="button" tabIndex={0} className={`rp-bento col-span-1 ${spanClass} rounded-xl p-6 relative flex flex-col justify-center`}>
       <SectionLabelAbs>{label}</SectionLabelAbs>
       {loading ? (
         <div className="text-slate-500 rp-mono text-sm mt-8">Loading...</div>
       ) : (
-        <>
-          <div className={`mt-8 rp-mono space-y-2 z-0 transition-all duration-500 ${revealed ? 'blur-none' : 'blur-sm select-none pointer-events-none'}`}>
-            {children}
-          </div>
-          {!revealed && (
-            <div className="rp-glass-overlay absolute inset-0 z-20 flex flex-col items-center justify-center rounded-xl">
-              <span className="mso mb-2 text-4xl" style={{ color: PRIMARY, textShadow: "0 0 8px rgba(173,198,255,0.5)" }}>{icon}</span>
-              <p className="rp-mono text-white mb-4">{title}</p>
-              <button 
-                onClick={(e) => { e.stopPropagation(); setRevealed(true); }}
-                className="border border-white/20 text-white px-4 py-1 rounded rp-label cursor-pointer"
-                style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
-              >
-                Click to Reveal
-              </button>
-            </div>
-          )}
-        </>
+        <div className="mt-8 rp-mono space-y-2 z-0">
+          {children}
+        </div>
       )}
     </div>
   );
 }
+
 
 type Detail = {
   title: string;

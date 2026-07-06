@@ -1,5 +1,5 @@
 from datetime import datetime
-from app.models import ReportData, ReputationInfo, SecurityInfo, ObservatoryInfo
+from app.models import ReportData, ReputationInfo, SecurityInfo, ObservatoryInfo, SubdomainInfo, SubdomainTag
 from app.analysis.scoring import calculate_pulse_score
 
 def test_score_boundaries_perfect():
@@ -48,3 +48,45 @@ def test_score_defaults_are_safe():
     score, level = calculate_pulse_score(report)
     assert score >= 70
     assert level in ["Low", "Medium"]
+
+def test_score_production_penalty():
+    report = ReportData(
+        id="test-id",
+        url="https://prod.example.com",
+        created_at=datetime.now(),
+        status="complete",
+        subdomains=SubdomainInfo(
+            subdomains=["www", "api", "admin"],
+            tags=[
+                SubdomainTag(subdomain="www", business_criticality="Production"),
+                SubdomainTag(subdomain="api", business_criticality="Production"),
+            ]
+        ),
+        observatory=ObservatoryInfo(grade="C", score=60, tests_passed=5, tests_failed=5)
+    )
+    score_no_prod, _ = calculate_pulse_score(report)
+    report_no_tags = ReportData(
+        id="test-id",
+        url="https://prod.example.com",
+        created_at=datetime.now(),
+        status="complete",
+        subdomains=SubdomainInfo(subdomains=["www", "api", "admin"]),
+        observatory=ObservatoryInfo(grade="C", score=60, tests_passed=5, tests_failed=5)
+    )
+    score_with_prod, _ = calculate_pulse_score(report)
+    score_without, _ = calculate_pulse_score(report_no_tags)
+    assert score_with_prod <= score_without
+
+def test_score_no_production_no_penalty():
+    report = ReportData(
+        id="test-id",
+        url="https://example.com",
+        created_at=datetime.now(),
+        status="complete",
+        subdomains=SubdomainInfo(
+            subdomains=["staging"],
+            tags=[SubdomainTag(subdomain="staging", business_criticality="Staging")]
+        )
+    )
+    score, _ = calculate_pulse_score(report)
+    assert score >= 70

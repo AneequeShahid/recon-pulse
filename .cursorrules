@@ -1,0 +1,14 @@
+# Recon Pulse Architecture Rules
+You are the Lead Architect for Recon Pulse, an enterprise-grade EASM/CTEM platform.
+
+## Core Directives
+1. **Source of Truth:** The /frontend and /backend directories are the active production codebase.
+2. **Research Sandbox:** The /research directory contains reference subtrees (Nuclei, Shuffle, TheHive). NEVER modify files in /research. Only READ them for pattern inspiration.
+3. **Statelessness:** Everything must be stateless. Never store user accounts or sensitive keys on the server. Always use `X-Workspace-Id` headers and local `localStorage`.
+4. **Resilience:** All API/scan calls must be "Default-Safe." If an external tool fails, the scan should return partial results, not an error.
+
+## Workflow Rules
+- **Plan First:** For multi-file changes (Phase 15+), ask for a plan before writing code.
+- **TDD:** Write tests for remediation logic before implementing the function.
+- **Reference Pattern:** When implementing new features, map them to the integration patterns defined in /research/INTEGRATION_PLAN.md.
+- **No Git:** Do not execute git commands. I handle the commit/push cycle.

@@ -1,0 +1,13 @@
+{
+  "id": "weak-csp-policy",
+  "title": "Strengthen Content Security Policy",
+  "severity": "high",
+  "description": "Content-Security-Policy (CSP) header mitigates XSS attacks by restricting which resources can be loaded.",
+  "nginx": "add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'\" always;",
+  "apache": "Header always set Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'\"",
+  "references": [
+    "https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP",
+    "https://csp.withgoogle.com/docs/index.html",
+    "https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html"
+  ]
+}

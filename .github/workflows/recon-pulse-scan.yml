@@ -1,0 +1,32 @@
+name: Recon Pulse Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 6 AM UTC
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Recon Pulse Scan
+        env:
+          RP_API_URL: ${{ secrets.RP_API_URL || 'http://localhost:8000' }}
+          RP_SCORE_THRESHOLD: ${{ vars.RP_SCORE_THRESHOLD || '70' }}
+          RP_WORKSPACE_ID: ci-${{ github.sha }}
+        run: |
+          python recon-pulse-cli.py \
+            "$RP_API_URL" \
+            "${{ secrets.RP_TARGET || 'https://example.com' }}" \
+            --score-threshold="$RP_SCORE_THRESHOLD" \
+            --workspace-id="$RP_WORKSPACE_ID"

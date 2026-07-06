@@ -14,20 +14,16 @@ async def create_report(
     req: ReportRequest,
     background_tasks: BackgroundTasks
 ):
-    # Normalize URL representation
     url = req.url.strip()
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
         
-    # Check 24-hour cache first
     cached_id = await get_cached(url)
     if cached_id:
         return {"report_id": cached_id, "cached": True}
 
-    # Generate distinct report identifier
     report_id = str(uuid.uuid4())[:8]
     
-    # Save the initial pending record so it can be queried immediately
     report = ReportData(
         id=report_id,
         url=url,
@@ -36,8 +32,18 @@ async def create_report(
     )
     await save_report(report)
 
-    # Schedule report scanning in the background
-    background_tasks.add_task(run_report, report_id, url)
+    routing_keys = {}
+    if req.jira_url or req.github_token:
+        routing_keys = {
+            "jira_url": req.jira_url or "",
+            "jira_email": req.jira_email or "",
+            "jira_api_token": req.jira_api_token or "",
+            "jira_project_key": req.jira_project_key or "",
+            "github_token": req.github_token or "",
+            "github_repo": req.github_repo or "",
+        }
+
+    background_tasks.add_task(run_report, report_id, url, req.routing_rules, routing_keys, req.cloud_creds, req.public_mode)
 
     return {"report_id": report_id, "cached": False}
 

@@ -1,9 +1,18 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 class ReportRequest(BaseModel):
     url: str
+    routing_rules: Optional[List[Dict[str, Any]]] = None
+    jira_url: Optional[str] = None
+    jira_email: Optional[str] = None
+    jira_api_token: Optional[str] = None
+    jira_project_key: Optional[str] = None
+    github_token: Optional[str] = None
+    github_repo: Optional[str] = None
+    cloud_creds: Optional[Dict[str, Any]] = None
+    public_mode: bool = False
 
 class TechStack(BaseModel):
     technologies: List[str] = []
@@ -110,9 +119,99 @@ class BGPInfo(BaseModel):
     downstreams_count: int = 0
     peers_count: int = 0
 
+class SubdomainTag(BaseModel):
+    subdomain: str
+    business_criticality: str = "Unknown"  # "Production" | "Staging" | "Sandbox" | "Unknown"
+
 class SubdomainInfo(BaseModel):
     subdomains: List[str] = []
     total_count: int = 0
+    tags: Optional[List[SubdomainTag]] = None  # Business criticality tags per subdomain
+
+class ShodanService(BaseModel):
+    port: int = 0
+    transport: Optional[str] = None
+    product: Optional[str] = None
+    version: Optional[str] = None
+    name: Optional[str] = None
+
+class ShodanInfo(BaseModel):
+    ip: Optional[str] = None
+    ports: List[int] = []
+    services: List[ShodanService] = []
+    hostnames: List[str] = []
+    os: Optional[str] = None
+    vulns: List[str] = []
+
+class SecurityTrailsInfo(BaseModel):
+    subdomains: List[str] = []
+    total_subdomains: int = 0
+    dns_history: List[Dict[str, Any]] = []
+
+class AlienVaultInfo(BaseModel):
+    passive_dns: List[Dict[str, Any]] = []
+    related_urls: List[str] = []
+    reputation: Optional[int] = None
+    threat_score: Optional[int] = None
+
+class SSLabsInfo(BaseModel):
+    grade: Optional[str] = None
+    has_warnings: Optional[bool] = None
+    is_exceptional: Optional[bool] = None
+    protocol: Optional[str] = None
+    chain_issues: Optional[bool] = None
+
+class ComplianceResult(BaseModel):
+    framework: str
+    total_controls: int
+    passed: int
+    failed: int
+    results: List[Dict[str, Any]]
+
+class SBOMPackage(BaseModel):
+    package_name: str
+    ecosystem: str
+    vuln_id: str
+    summary: str
+    severity: str = "Medium"
+    cvss_score: Optional[float] = None
+    aliases: List[str] = []
+    fixed_version: Optional[str] = None
+    source: str = "OSV.dev"
+
+
+class SBOMInfo(BaseModel):
+    packages: List[SBOMPackage] = []
+    total_vulnerabilities: int = 0
+    critical_count: int = 0
+    high_count: int = 0
+    medium_count: int = 0
+
+
+class AttackPathNode(BaseModel):
+    id: str
+    label: str
+    type: str  # "domain" | "subdomain" | "service" | "vuln" | "ip"
+    severity: Optional[str] = None
+    children: List[str] = []
+    data: Optional[Dict[str, Any]] = None
+
+class DarkWebIntel(BaseModel):
+    breaches: List[Dict[str, Any]] = []
+    leaked_subdomains: List[str] = []
+
+class ShadowSubdomain(BaseModel):
+    subdomain: str
+    resolved_ip: Optional[str] = None
+    source: str = "dns_bruteforce"  # "dns_bruteforce" | "crt_sh" | "dns_bruteforce+crt_sh"
+    classification: str = "Unknown"  # "Production" | "Staging" | "Development" | "Admin" | "Mail" | "API" | "CDN" | "Unknown"
+
+class ExposedSecret(BaseModel):
+    type: str  # "aws_key" | "github_token" | "slack_token" | "jwt" | "private_key" | "git_config" | "generic_secret"
+    file_url: str
+    snippet: str = ""
+    severity: str = "Medium"
+    line_number: int = 0
 
 class ReputationInfo(BaseModel):
     malicious_count: int = 0
@@ -125,6 +224,29 @@ class ObservatoryInfo(BaseModel):
     score: Optional[int] = None
     tests_passed: int = 0
     tests_failed: int = 0
+
+
+class Finding(BaseModel):
+    id: str
+    title: str
+    description: Optional[str] = None
+    severity: str = "Medium"
+    source: str = "scan"
+    is_promoted: bool = False
+    case_id: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class InvestigationCase(BaseModel):
+    id: str
+    report_id: str
+    workspace_id: Optional[str] = None
+    title: str
+    status: str = "open"
+    finding_ids: List[str] = []
+    created_at: datetime
+    notes: Optional[str] = None
+
 
 class ReportData(BaseModel):
     id: str
@@ -152,10 +274,25 @@ class ReportData(BaseModel):
     robots: Optional[RobotsInfo] = None
     bgp: Optional[BGPInfo] = None
     subdomains: Optional[SubdomainInfo] = None
+    shadow_subdomains: Optional[List[ShadowSubdomain]] = None
+    cloud_assets: Optional[Dict[str, List[Dict[str, Any]]]] = None
+    exposed_secrets: Optional[List[ExposedSecret]] = None
+    dns_drift: Optional[Dict[str, Any]] = None
     reputation: Optional[ReputationInfo] = None
     observatory: Optional[ObservatoryInfo] = None
+    shodan: Optional[ShodanInfo] = None
+    securitytrails: Optional[SecurityTrailsInfo] = None
+    alienvault: Optional[AlienVaultInfo] = None
+    ssllabs: Optional[SSLabsInfo] = None
+    compliance_soc2: Optional[ComplianceResult] = None
+    compliance_nist: Optional[ComplianceResult] = None
+    darkweb: Optional[DarkWebIntel] = None
+    sbom: Optional[SBOMInfo] = None
+    attack_path: Optional[List[AttackPathNode]] = None
     summary_score: Optional[int] = None
     threat_level: Optional[str] = None
+    remediation_steps: Optional[List[Dict[str, Any]]] = None
+    findings: Optional[List[Finding]] = None
     created_at: datetime
     status: str  # "pending" | "partial" | "complete" | "error"
 

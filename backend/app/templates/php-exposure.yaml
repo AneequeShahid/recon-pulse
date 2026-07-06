@@ -1,0 +1,6 @@
+id: php-exposure
+name: PHP Technology Detected
+matcher: php
+matcher_type: word
+severity: Medium
+target: tech_stack

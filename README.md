@@ -21,7 +21,19 @@
 
 ---
 
-## 🏗️ System Architecture
+## 🧭 Architectural Philosophy: Zero-Friction, Local-First
+
+Recon Pulse operates as a **stateless reconnaissance engine**. All workspace data, integration keys, and scan histories reside locally in your browser, ensuring complete privacy and zero-latency performance.
+
+- **No login wall** — Click to scan, immediately upon landing
+- **Local-First persistence** — Scan history, preferences, and integration keys stored in browser localStorage
+- **Ephemeral Workspaces** — Auto-generated workspace_id groups session data without requiring an account
+- **Client-Side Encryption** — Jira/GitHub credentials encrypted in browser, passed as ephemeral payloads — never stored on the server
+- **Audit logging by workspace** — Server logs actions by workspace_id, not user_id, maintaining compliance without PII
+
+Built with research-grade methodologies derived from [Nuclei](https://github.com/projectdiscovery/nuclei), [Shuffle](https://github.com/Shuffle/shuffle), and [TheHive](https://github.com/TheHive-Project/TheHive).
+
+---
 
 Recon Pulse uses a decoupled client-server architecture built for minimal latency, progressive data streaming, and intelligent local caching.
 

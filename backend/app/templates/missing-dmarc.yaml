@@ -1,0 +1,6 @@
+id: missing-dmarc
+name: Missing DMARC Record
+matcher: '"dmarc": false'
+matcher_type: word
+severity: High
+target: email_security

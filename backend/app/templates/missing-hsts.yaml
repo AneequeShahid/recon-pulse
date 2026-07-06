@@ -1,0 +1,6 @@
+id: missing-hsts
+name: Missing Strict-Transport-Security Header
+matcher: strict-transport-security
+matcher_type: word
+severity: Medium
+target: headers

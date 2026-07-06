@@ -98,9 +98,23 @@ def calculate_pulse_score(report: ReportData) -> Tuple[int, str]:
             protocol_points += 2
     score += protocol_points
     
+    # 6. Business Criticality Multiplier (Phase 7)
+    # If any subdomain is tagged "Production", apply 1.5x risk multiplier
+    has_production = False
+    if report.subdomains and report.subdomains.tags:
+        for tag in report.subdomains.tags:
+            if tag.business_criticality == "Production":
+                has_production = True
+                break
+
     # Cap score boundaries
     final_score = max(0, min(100, score))
-    
+
+    # Apply Production risk multiplier (1.5x risk => reduce score by up to 15 points)
+    if has_production and final_score < 85:
+        penalty = int((85 - final_score) * 0.5)  # Higher penalty for worse scores
+        final_score = max(0, final_score - min(penalty, 15))
+
     # Map score to Threat Level
     if final_score >= 85:
         threat_level = "Low"

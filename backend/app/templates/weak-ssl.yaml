@@ -1,0 +1,6 @@
+id: weak-ssl
+name: Weak SSL/TLS Grade
+matcher: '"ssl_grade": "(C|D|F)'
+matcher_type: regex
+severity: High
+target: security

@@ -1,0 +1,14 @@
+{
+  "id": "missing-hsts-header",
+  "title": "Enable HSTS Header",
+  "severity": "medium",
+  "description": "HTTP Strict-Transport-Security (HSTS) header instructs browsers to always use HTTPS connections.",
+  "nginx": "add_header Strict-Transport-Security \"max-age=63072000; includeSubDomains; preload\" always;",
+  "apache": "Header always set Strict-Transport-Security \"max-age=63072000; includeSubDomains; preload\"",
+  "iis": "<system.webServer><rewrite><outboundRules><rule name=\"Add HSTS\"><match serverVariable=\"RESPONSE_Strict_Transport_Security\" pattern=\".*\"/><action type=\"Rewrite\" value=\"max-age=63072000; includeSubDomains; preload\"/></rule></outboundRules></rewrite></system.webServer>",
+  "terraform": "resource \"aws_cloudfront_response_headers_policy\" \"hsts\" {\n  name = \"hsts-policy\"\n  security_headers_config {\n    strict_transport_security {\n      access_control_max_age_sec = 63072000\n      include_subdomains       = true\n      preload                   = true\n      override                  = true\n    }\n  }\n}",
+  "references": [
+    "https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html",
+    "https://hstspreload.org/"
+  ]
+}

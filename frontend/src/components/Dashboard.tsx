@@ -1,8 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import axios from 'axios';
 import { useReportStream } from '../hooks/useReportStream';
+import { useWorkspace } from '../hooks/SessionWorkspace';
+import { addScanHistory, getIntegrationKeys, setIntegrationKeys as saveIntegrationKeys, getScanHistory, getIgnoredFindings, addIgnoredFinding, isFindingIgnored } from '../hooks/useStorage';
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
+import { AttackPathView } from './AttackPathView';
+
+// Set default workspace header for all axios requests
+const wsInterceptor = (config: any) => {
+  const ws = localStorage.getItem('rp_workspace_id');
+  if (ws) config.headers['X-Workspace-Id'] = ws;
+  return config;
+};
+axios.interceptors.request.use(wsInterceptor);
 
 const AVATAR_URL =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuAyu8MpVA8eQoO2NaGUTP0oUdhDvx9ZR3Tkmgv4MHUW9rOsq72J13d3DjW0_cAu7njxxO-4uFiMQ5i73UOkMm_iEEUWwEXGNo_V7YjqwoW2TBq3Tqtg-33boBRUeWyhnptsvTaAN7lmq16W2t5uf08KCEVdVcpYVDnVL8Cj6ZSprDV-dXhG-KuvjLQxKw45zbRAjCPZIFSyXoWfjJRwElWv6TBqDUTnJkrKjNTyl1veFGZ2N8tlSNhkVw";
@@ -32,11 +43,14 @@ export function Dashboard() {
   const [extractedColors, setExtractedColors] = useState<{ dominant: string; palette: string[] } | null>(null);
   const [extractedColorsB, setExtractedColorsB] = useState<{ dominant: string; palette: string[] } | null>(null);
 
+  const { workspaceId, recordScan } = useWorkspace();
   const { report, status } = useReportStream(activeReportId);
   const { report: reportB, status: statusB } = useReportStream(activeReportIdB);
   const [historyList, setHistoryList] = useState<any[]>([]);
-  const [scanHistory, setScanHistory] = useState<any[]>([]);
+  const [scanHistory, setScanHistory] = useState<any[]>(() => getScanHistory());
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [showIntegrations, setShowIntegrations] = useState(false);
+  const [integrationKeys, setIntegrationKeys] = useState<any>(() => getIntegrationKeys());
 
   // Dark/Light Mode Toggle state
   const [theme, setTheme] = useState(() => localStorage.getItem('rp_theme') || 'dark');
@@ -117,7 +131,7 @@ export function Dashboard() {
     }
   }, [status]);
 
-  // Save successful scan to history
+  // Save successful scan to local history
   useEffect(() => {
     if (status === 'complete' && report && activeReportId) {
       try {
@@ -129,29 +143,30 @@ export function Dashboard() {
       } catch (e) {
         console.warn('save history failed', e);
       }
+      // Record in workspace scan history
+      recordScan({
+        reportId: activeReportId,
+        url: report.url,
+        score: report.summary_score ?? 0,
+        threat: report.threat_level ?? 'unknown',
+        timestamp: new Date().toISOString(),
+      });
     }
-  }, [status, report, activeReportId]);
+  }, [status, report, activeReportId, recordScan]);
 
-  // Load scan history from database
+  // Load scan history from localStorage
   useEffect(() => {
-    if (report?.url) {
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      axios.get(`${apiBaseUrl}/api/report/history`, { params: { url: report.url } })
-        .then((res) => {
-          setScanHistory(res.data || []);
-        })
-        .catch((err) => console.log("Error loading scan history:", err));
-    } else {
-      setScanHistory([]);
-    }
-  }, [report?.url, status]);
+    setScanHistory(getScanHistory());
+  }, [status]);
 
   const handleHistoryClick = async (url: string) => {
     setUrlInput(url);
     setSubmitting(true);
     try {
       const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const { data } = await axios.post(`${apiBaseUrl}/api/report`, { url });
+      const { data } = await axios.post(`${apiBaseUrl}/api/report`, { url }, {
+        headers: { 'X-Workspace-Id': workspaceId }
+      });
       setActiveReportId(data.report_id);
       window.history.pushState(null, '', `/r/${data.report_id}`);
     } catch (err) {
@@ -887,6 +902,16 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                             ? "This domain has a healthy security posture. No critical gaps were identified during active scanning."
                             : `Gaps detected in: ${gaps.length > 0 ? gaps.join(", ") : "None"}. Remediation recommended to resolve vulnerabilities.`}
                         </p>
+                        {(report?.remediation_steps?.length ?? 0) > 0 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setActiveCard('remediation'); }}
+                            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-semibold transition-all cursor-pointer"
+                            style={{ backgroundColor: "#f59e0b22", color: "#f59e0b", border: "1px solid #f59e0b44" }}
+                          >
+                            <span className="mso text-sm" style={{ fontSize: "14px" }}>build</span>
+                            View Remediation Guide ({report?.remediation_steps?.length})
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -952,6 +977,49 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                         "#10b981"
                       }}>
                         {reportB?.summary_score ?? 0} ({reportB?.threat_level || 'Low'})
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* SBOM Supply Chain */}
+              <div data-card="sbom" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col min-h-[220px]">
+                <SectionLabel>Supply Chain</SectionLabel>
+                {isLoading ? (
+                  <div className="text-slate-500 rp-mono text-sm mt-auto">Checking dependencies...</div>
+                ) : !compareMode ? (
+                  report?.sbom && report.sbom.total_vulnerabilities > 0 ? (
+                    <div className="mt-auto space-y-2">
+                      <div className="flex items-center gap-4">
+                        <div className="text-3xl font-bold rp-mono" style={{ color: report.sbom.critical_count > 0 ? '#ef4444' : report.sbom.high_count > 0 ? '#f97316' : '#f59e0b' }}>
+                          {report.sbom.total_vulnerabilities}
+                        </div>
+                        <div className="text-xs text-slate-400 rp-mono">known vulns in stack</div>
+                      </div>
+                      <div className="flex gap-2 text-[10px]">
+                        {report.sbom.critical_count > 0 && <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">Critical: {report.sbom.critical_count}</span>}
+                        {report.sbom.high_count > 0 && <span className="px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30">High: {report.sbom.high_count}</span>}
+                        {report.sbom.medium_count > 0 && <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">Medium: {report.sbom.medium_count}</span>}
+                      </div>
+                    </div>
+                  ) : report?.tech_stack?.technologies?.length > 0 ? (
+                    <div className="text-[#34d399] rp-mono text-xs mt-auto">✓ No known vulnerabilities in detected stack</div>
+                  ) : (
+                    <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No tech stack detected</div>
+                  )
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 mt-auto rp-mono text-xs">
+                    <div>
+                      <div className="text-slate-400 mb-1 text-[10px]">A: {report?.url?.replace(/^https?:\/\/(www\.)?/, '')}</div>
+                      <div className="text-lg font-bold" style={{ color: (report?.sbom?.critical_count || 0) > 0 ? '#ef4444' : '#34d399' }}>
+                        {report?.sbom?.total_vulnerabilities ?? 0} vulns
+                      </div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1 text-[10px]">B: {reportB?.url?.replace(/^https?:\/\/(www\.)?/, '')}</div>
+                      <div className="text-lg font-bold" style={{ color: (reportB?.sbom?.critical_count || 0) > 0 ? '#ef4444' : '#34d399' }}>
+                        {reportB?.sbom?.total_vulnerabilities ?? 0} vulns
                       </div>
                     </div>
                   </div>
@@ -1778,6 +1846,29 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 )}
               </div>
 
+              {/* Shadow IT Discovery */}
+              {report?.shadow_subdomains && report.shadow_subdomains.length > 0 && (
+                <div data-card="shadow_it" onClick={() => setActiveCard('shadow_it')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                  <SectionLabel>Shadow IT Discovery</SectionLabel>
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl font-bold rp-mono text-orange-400">{report.shadow_subdomains.length}</span>
+                      <span className="text-xs text-slate-400 rp-mono">unauthorized hosts</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-[60px] overflow-y-auto">
+                      {report.shadow_subdomains.slice(0, 5).map((s: any) => (
+                        <span key={s.subdomain} className="bg-orange-500/10 border border-orange-500/30 px-2 py-0.5 rounded text-[10px] rp-mono text-orange-300 truncate max-w-full">
+                          {s.subdomain.split('.')[0]}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-1 rp-mono text-right">
+                      {report.shadow_subdomains.filter((s: any) => s.classification === 'Staging' || s.classification === 'Development').length} non-production
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Reputation Engine */}
               <div data-card="reputation" onClick={() => setActiveCard('reputation')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
                 <SectionLabel>Reputation Engine</SectionLabel>
@@ -1850,6 +1941,129 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 )}
               </div>
 
+              {/* Shodan — Open Ports & Services */}
+              {report?.shodan && (
+                <div data-card="shodan" onClick={() => setActiveCard('shodan')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                  <SectionLabel>Shodan Exposure</SectionLabel>
+                  <div className="mt-2">
+                    <div className="text-xs rp-mono text-slate-400 mb-1">{report.shodan.ports?.length || 0} open ports</div>
+                    <div className="flex flex-wrap gap-1">
+                      {(report.shodan.ports || []).slice(0, 6).map((p: number) => (
+                        <span key={p} className="bg-orange-500/20 text-orange-300 border border-orange-500/30 px-2 py-0.5 rounded text-[10px] rp-mono">{p}</span>
+                      ))}
+                    </div>
+                    {report.shodan.vulns?.length > 0 && (
+                      <div className="text-red-400 text-[10px] rp-mono mt-2">{report.shodan.vulns.length} known vulns</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* SSL Labs Grade */}
+              {report?.ssllabs && (
+                <div data-card="ssllabs" onClick={() => setActiveCard('ssllabs')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-3 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                  <SectionLabel>SSL Labs Grade</SectionLabel>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-3xl font-extrabold" style={{ color: report.ssllabs.grade?.startsWith('A') ? '#34d399' : report.ssllabs.grade?.startsWith('B') ? '#f59e0b' : '#ef4444' }}>
+                      {report.ssllabs.grade || 'N/A'}
+                    </span>
+                    <div className="text-right text-[10px] text-slate-400 rp-mono">
+                      {report.ssllabs.protocol && <div>{report.ssllabs.protocol}</div>}
+                      {report.ssllabs.has_warnings && <div className="text-yellow-400">⚠ Warnings</div>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SecurityTrails — Historical DNS */}
+              {report?.securitytrails && (
+                <div data-card="securitytrails" onClick={() => setActiveCard('securitytrails')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-3 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                  <SectionLabel>SecurityTrails DNS</SectionLabel>
+                  <div className="mt-2 text-xs rp-mono text-slate-300">
+                    <div>{report.securitytrails.total_subdomains || 0} discovered subdomains</div>
+                    <div className="text-slate-500 text-[10px] mt-1">{report.securitytrails.dns_history?.length || 0} historical DNS records</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Compliance Dashboard with Progress Bar */}
+              {report?.compliance_soc2 && (
+                <div data-card="compliance" onClick={() => setActiveCard('compliance')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                  <SectionLabel>Compliance Progress</SectionLabel>
+                  {(() => {
+                    const soc2Pct = Math.round(report.compliance_soc2.passed / report.compliance_soc2.total_controls * 100);
+                    const nistPct = Math.round(report.compliance_nist.passed / report.compliance_nist.total_controls * 100);
+                    const combined = Math.round((soc2Pct + nistPct) / 2);
+                    const barColor = combined >= 80 ? '#34d399' : combined >= 50 ? '#f59e0b' : '#ef4444';
+                    return (
+                      <div className="mt-2">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-slate-400 rp-mono">Overall Compliance</span>
+                          <span className="font-semibold" style={{ color: barColor }}>{combined}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-white/10 overflow-hidden mb-3">
+                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${combined}%`, backgroundColor: barColor }} />
+                        </div>
+                        <div className="flex gap-2 text-[10px]">
+                          <div className="flex-1 border border-white/10 rounded p-2 bg-white/5">
+                            <div className="text-slate-400 rp-mono">SOC2</div>
+                            <div className="font-semibold text-white">{report.compliance_soc2.passed}/{report.compliance_soc2.total_controls}</div>
+                            <div className="h-1 rounded bg-white/10 mt-1 overflow-hidden">
+                              <div className="h-full rounded bg-green-400" style={{ width: `${soc2Pct}%` }} />
+                            </div>
+                          </div>
+                          <div className="flex-1 border border-white/10 rounded p-2 bg-white/5">
+                            <div className="text-slate-400 rp-mono">NIST CSF</div>
+                            <div className="font-semibold text-white">{report.compliance_nist.passed}/{report.compliance_nist.total_controls}</div>
+                            <div className="h-1 rounded bg-white/10 mt-1 overflow-hidden">
+                              <div className="h-full rounded bg-indigo-400" style={{ width: `${nistPct}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Dark Web Intel */}
+              {report?.darkweb && (
+                <div data-card="darkweb" onClick={() => setActiveCard('darkweb')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                  <SectionLabel>Dark Web Intel</SectionLabel>
+                  <div className="mt-2 text-xs rp-mono">
+                    <div className="flex justify-between border-b border-white/5 pb-1 mb-1">
+                      <span className="text-slate-400">Breaches</span>
+                      <span className={report.darkweb.breaches?.length > 0 ? 'text-red-400 font-semibold' : 'text-green-400'}>{report.darkweb.breaches?.length || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Leaked Subdomains</span>
+                      <span className={report.darkweb.leaked_subdomains?.length > 0 ? 'text-red-400 font-semibold' : 'text-green-400'}>{report.darkweb.leaked_subdomains?.length || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Attack Path Visualization */}
+              {report?.attack_path && report.attack_path.length > 1 && (
+                <div data-card="attack_path" onClick={() => setActiveCard('attack_path')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-6 rounded-xl p-6 flex flex-col min-h-[200px]">
+                  <div className="flex items-center justify-between mb-2">
+                    <SectionLabel>Attack Surface Graph</SectionLabel>
+                    <span className="text-[10px] text-slate-400 rp-mono">{report.attack_path.length} nodes</span>
+                  </div>
+                  <div className="flex-1 min-h-[140px]">
+                    <AttackPathView nodes={report.attack_path} />
+                  </div>
+                </div>
+              )}
+
+              {/* Integrations */}
+              <div data-card="integrations" onClick={() => setShowIntegrations(true)} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-3 rounded-xl p-6 flex flex-col justify-between min-h-[120px]">
+                <SectionLabel>Integrations</SectionLabel>
+                <div className="mt-2 flex gap-2">
+                  <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded rp-mono">Jira</span>
+                  <span className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded rp-mono">GitHub</span>
+                </div>
+              </div>
 
             </div>
           )}
@@ -1857,6 +2071,72 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
       </main>
 
       <CardDetailModal cardKey={activeCard} report={report} extractedColors={extractedColors} onClose={() => setActiveCard(null)} />
+
+      {/* Integrations Settings Modal */}
+      {showIntegrations && (
+        <div className="rp-modal-backdrop" onClick={() => setShowIntegrations(false)}>
+          <div className="rp-modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="p-6 pb-4 border-b border-white/10">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center border shrink-0"
+                  style={{ backgroundColor: "rgba(255,255,255,0.05)", borderColor: "rgba(99,102,241,0.33)", boxShadow: "0 0 24px rgba(99,102,241,0.13)" }}>
+                  <span className="mso text-2xl" style={{ color: '#6366f1' }}>settings</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="rp-title text-left" style={{ color: '#6366f1' }}>Integrations</h2>
+                  <p className="text-[#c2c6d6] text-sm text-left mt-1">Connect Jira or GitHub to create tickets from findings</p>
+                </div>
+                <button onClick={() => setShowIntegrations(false)}
+                  className="rounded-sm opacity-70 cursor-pointer transition-opacity hover:opacity-100 text-[#c2c6d6] p-1" aria-label="Close">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="2" y1="2" x2="14" y2="14" /><line x1="14" y1="2" x2="2" y2="14" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-6">
+              <p className="text-xs text-slate-400 rp-mono mb-2">Credentials are stored encrypted in your browser and sent directly to the API — never stored on the server.</p>
+              {/* Jira */}
+              <div className="border border-white/10 rounded-lg p-4 bg-white/5">
+                <h3 className="text-sm font-semibold text-blue-400 mb-3">Jira</h3>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <input id="ji_url" placeholder="Jira URL" defaultValue={integrationKeys?.jira_url || ''} className="bg-black/30 border border-white/10 rounded px-2 py-1.5 text-white rp-mono col-span-2" />
+                  <input id="ji_email" placeholder="Email" defaultValue={integrationKeys?.jira_email || ''} className="bg-black/30 border border-white/10 rounded px-2 py-1.5 text-white rp-mono" />
+                  <input id="ji_token" type="password" placeholder="API Token" defaultValue={integrationKeys?.jira_api_token || ''} className="bg-black/30 border border-white/10 rounded px-2 py-1.5 text-white rp-mono" />
+                  <input id="ji_project" placeholder="Project Key" defaultValue={integrationKeys?.jira_project_key || ''} className="bg-black/30 border border-white/10 rounded px-2 py-1.5 text-white rp-mono" />
+                </div>
+              </div>
+              {/* GitHub */}
+              <div className="border border-white/10 rounded-lg p-4 bg-white/5">
+                <h3 className="text-sm font-semibold text-purple-400 mb-3">GitHub Issues</h3>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <input id="gh_token" type="password" placeholder="GitHub Token" defaultValue={integrationKeys?.github_token || ''} className="bg-black/30 border border-white/10 rounded px-2 py-1.5 text-white rp-mono col-span-2" />
+                  <input id="gh_repo" placeholder="owner/repo" defaultValue={integrationKeys?.github_repo || ''} className="bg-black/30 border border-white/10 rounded px-2 py-1.5 text-white rp-mono col-span-2" />
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const newKeys = {
+                    jira_url: (document.getElementById('ji_url') as HTMLInputElement)?.value || '',
+                    jira_email: (document.getElementById('ji_email') as HTMLInputElement)?.value || '',
+                    jira_api_token: (document.getElementById('ji_token') as HTMLInputElement)?.value || '',
+                    jira_project_key: (document.getElementById('ji_project') as HTMLInputElement)?.value || '',
+                    github_token: (document.getElementById('gh_token') as HTMLInputElement)?.value || '',
+                    github_repo: (document.getElementById('gh_repo') as HTMLInputElement)?.value || '',
+                  };
+                  setIntegrationKeys(newKeys);
+                  saveIntegrationKeys(newKeys);
+                  alert('Integration keys saved locally.');
+                }}
+                className="w-full text-xs py-2 rounded font-semibold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer"
+              >
+                Save Keys Locally
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
 
   );
@@ -1948,6 +2228,30 @@ const getCardDetails = (report: any, extractedColors: any): Record<string, Detai
           { k: "Renderer", v: "Chromium (headless)", mono: true },
           { k: "Screenshot URL", v: report?.screenshot_url || "Not captured", mono: true }
         ]}
+      ]
+    },
+    sbom: {
+      title: "Supply Chain Vulnerabilities",
+      subtitle: `Known CVEs in detected tech stack (${report?.sbom?.total_vulnerabilities ?? 0} total)`,
+      icon: "inventory_2",
+      accent: (report?.sbom?.critical_count || 0) > 0 ? '#ef4444' : (report?.sbom?.high_count || 0) > 0 ? '#f97316' : '#f59e0b',
+      sections: [
+        { label: "Vulnerability Summary", rows: [
+          { k: "Total Vulnerabilities", v: String(report?.sbom?.total_vulnerabilities ?? 0) },
+          { k: "Critical", v: String(report?.sbom?.critical_count ?? 0) },
+          { k: "High", v: String(report?.sbom?.high_count ?? 0) },
+          { k: "Medium", v: String(report?.sbom?.medium_count ?? 0) },
+        ]},
+        ...((report?.sbom?.packages || []).length > 0 ? (report?.sbom?.packages || []).slice(0, 20).map((pkg: any) => ({
+          label: `${pkg.package_name}: ${pkg.vuln_id}`,
+          rows: [
+            { k: "Ecosystem", v: pkg.ecosystem },
+            { k: "Severity", v: pkg.severity },
+            { k: "Summary", v: pkg.summary || "No description" },
+            { k: "Fixed Version", v: pkg.fixed_version || "Not specified" },
+            ...(pkg.aliases?.length > 0 ? [{ k: "Aliases", v: pkg.aliases.join(", ") }] : []),
+          ]
+        })) : [])
       ]
     },
     tech: {
@@ -2197,6 +2501,38 @@ const getCardDetails = (report: any, extractedColors: any): Record<string, Detai
         }))}
       ]
     },
+    shadow_it: {
+      title: "Shadow IT Discovery",
+      subtitle: `Unauthorized/unknown hosts — ${report?.shadow_subdomains?.length || 0} found`,
+      icon: "radar",
+      accent: "#f97316",
+      sections: [
+        { label: "Classification Summary", rows: (() => {
+          const subs = report?.shadow_subdomains || [];
+          const staging = subs.filter((s: any) => s.classification === 'Staging').length;
+          const dev = subs.filter((s: any) => s.classification === 'Development').length;
+          const admin = subs.filter((s: any) => s.classification === 'Admin').length;
+          const api = subs.filter((s: any) => s.classification === 'API').length;
+          const mail = subs.filter((s: any) => s.classification === 'Mail').length;
+          const cdn = subs.filter((s: any) => s.classification === 'CDN').length;
+          const unknown = subs.filter((s: any) => s.classification === 'Unknown').length;
+          return [
+            { k: "Total Shadow Hosts", v: String(subs.length) },
+            ...(staging > 0 ? [{ k: "Staging", v: String(staging) }] : []),
+            ...(dev > 0 ? [{ k: "Development", v: String(dev) }] : []),
+            ...(admin > 0 ? [{ k: "Admin Interfaces", v: String(admin) }] : []),
+            ...(api > 0 ? [{ k: "API Endpoints", v: String(api) }] : []),
+            ...(mail > 0 ? [{ k: "Mail Servers", v: String(mail) }] : []),
+            ...(cdn > 0 ? [{ k: "CDN Origins", v: String(cdn) }] : []),
+            ...(unknown > 0 ? [{ k: "Unclassified", v: String(unknown) }] : []),
+          ];
+        })() },
+        { label: "Discovered Hosts", rows: (report?.shadow_subdomains || []).slice(0, 50).map((s: any) => ({
+          k: s.subdomain,
+          v: `${s.classification}${s.resolved_ip ? ` (${s.resolved_ip})` : ''}`
+        }))}
+      ]
+    },
     reputation: {
       title: "Reputation Engine Threat Scan",
       subtitle: "Antivirus and reputation engine blacklisting checks",
@@ -2224,17 +2560,149 @@ const getCardDetails = (report: any, extractedColors: any): Record<string, Detai
           { k: "Non-Compliant Headers Failed", v: String(report?.observatory?.tests_failed ?? 0) }
         ]}
       ]
+    },
+    shodan: {
+      title: "Shodan Exposure Intelligence",
+      subtitle: "Open ports, services, and known vulnerabilities from Shodan",
+      icon: "radar",
+      accent: "#f97316",
+      sections: [
+        { label: "Open Ports", rows: (report?.shodan?.ports || []).map((p: number) => ({ k: `Port ${p}`, v: "Open" })) },
+        { label: "Services Detected", rows: Object.entries(report?.shodan?.services || {}).map(([port, svc]: any) => ({ k: `Port ${port}`, v: svc })) },
+        { label: "Known Vulnerabilities", rows: (report?.shodan?.vulns || []).map((v: string) => ({ k: v, v: "CVE" })) }
+      ]
+    },
+    ssllabs: {
+      title: "SSL Labs Grade",
+      subtitle: "Proper SSL/TLS configuration grading",
+      icon: "lock",
+      accent: report?.ssllabs?.grade?.startsWith('A') ? '#34d399' : report?.ssllabs?.grade?.startsWith('B') ? '#f59e0b' : '#ef4444',
+      sections: [
+        { label: "SSL Configuration", rows: [
+          { k: "Grade", v: report?.ssllabs?.grade || "N/A" },
+          { k: "Protocol", v: report?.ssllabs?.protocol || "N/A" },
+          { k: "Has Warnings", v: report?.ssllabs?.has_warnings ? "Yes ⚠" : "No" },
+          { k: "Weak Protocols", v: (report?.ssllabs?.weak_protocols || []).join(", ") || "None" }
+        ]}
+      ]
+    },
+    securitytrails: {
+      title: "SecurityTrails DNS History",
+      subtitle: "Historical DNS records and subdomain discovery",
+      icon: "dns",
+      accent: "#6366f1",
+      sections: [
+        { label: "Subdomains", rows: (report?.securitytrails?.subdomains || []).slice(0, 50).map((s: string) => ({ k: s, v: "Active" })) },
+        { label: "DNS History", rows: (report?.securitytrails?.dns_history || []).slice(0, 50).map((r: any) => ({ k: r.type || "Record", v: `${r.value} (${r.first_seen || "?"} → ${r.last_seen || "?"})` })) }
+      ]
+    },
+    compliance: {
+      title: "Compliance Dashboard",
+      subtitle: "SOC2 and NIST CSF control mapping",
+      icon: "verified_user",
+      accent: "#34d399",
+      sections: [
+        { label: "SOC2 Controls", rows: (report?.compliance_soc2?.controls || []).map((c: any) => ({
+          k: c.control_id,
+          v: c.passed ? "Pass" : "Fail"
+        })) },
+        { label: "NIST CSF Controls", rows: (report?.compliance_nist?.controls || []).map((c: any) => ({
+          k: c.control_id,
+          v: c.passed ? "Pass" : "Fail"
+        })) }
+      ]
+    },
+    darkweb: {
+      title: "Dark Web Intel",
+      subtitle: "Breach alerts and leaked subdomain intelligence",
+      icon: "visibility_off",
+      accent: "#ef4444",
+      sections: [
+        { label: "Breaches", rows: (report?.darkweb?.breaches || []).length > 0
+          ? (report?.darkweb?.breaches || []).map((b: any) => ({ k: b.name || "Breach", v: `${b.date || "?"} — ${b.email || b.domain || "?"}` }))
+          : [{ k: "Status", v: "No breaches detected" }]
+        },
+        { label: "Leaked Subdomains", rows: (report?.darkweb?.leaked_subdomains || []).length > 0
+          ? (report?.darkweb?.leaked_subdomains || []).map((s: string) => ({ k: s, v: "Leaked" }))
+          : [{ k: "Status", v: "No leaked subdomains found" }]
+        }
+      ]
+    },
+    attack_path: {
+      title: "Attack Surface Graph",
+      subtitle: `Visualized attack path — ${report?.attack_path?.length || 0} nodes`,
+      icon: "account_tree",
+      accent: "#ef4444",
+      sections: (() => {
+        const nodes = report?.attack_path || [];
+        // Show node hierarchy
+        const root = nodes.find((n: any) => n.id === 'root');
+        const children = nodes.filter((n: any) => n.id !== 'root');
+        return [
+          { label: "Root Domain", rows: root ? [{ k: "Domain", v: root.label }, { k: "Children", v: String(root.children?.length || 0) }] : [{ k: "Info", v: "No root" }] },
+          ...children.slice(0, 15).map((n: any) => ({
+            label: `${n.type?.toUpperCase()}: ${n.label}`,
+            rows: [
+              { k: "Type", v: n.type || "Unknown" },
+              { k: "Severity", v: n.severity || "Info" },
+              { k: "Children", v: String(n.children?.length || 0) },
+              ...(n.data?.mitre?.length > 0 ? [{ k: "MITRE ATT&CK", v: n.data.mitre.map((m: any) => `${m.technique_id} ${m.name}`).join(", ") }] : []),
+            ]
+          }))
+        ];
+      })()
+    },
+    remediation: {
+      title: "Remediation Guide",
+      subtitle: `Auto-generated configuration fixes (${report?.remediation_steps?.length || 0} steps)`,
+      icon: "build",
+      accent: "#f59e0b",
+      sections: (report?.remediation_steps || []).map((step: any, idx: number) => ({
+        label: `${idx + 1}. ${step.title}`,
+        rows: [
+          { k: "Description", v: step.description || "" },
+          ...(step.mitre_attack?.length > 0 ? step.mitre_attack.map((m: any) => ({
+            k: `MITRE ATT&CK: ${m.technique_id}`,
+            v: `${m.name} (${m.tactic})`
+          })) : []),
+          { k: "Nginx Config", v: step.nginx || "N/A", mono: true },
+          { k: "Apache Config", v: step.apache || "N/A", mono: true }
+        ]
+      }))
     }
-
   };
 };
 
 function CardDetailModal({ cardKey, report, extractedColors, onClose }: { cardKey: string | null; report: any; extractedColors: any; onClose: () => void }) {
+  const isRemediation = cardKey === 'remediation';
+  const [activeStep, setActiveStep] = useState(0);
+  const [stepTab, setStepTab] = useState<'nginx' | 'apache'>('nginx');
+  const [copiedIdx, setCopiedIdx] = useState<string | null>(null);
+  const [verifyStatus, setVerifyStatus] = useState<string | null>(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [showIgnored, setShowIgnored] = useState(false);
+  const [ignoredSet, setIgnoredSet] = useState<Set<string>>(() => {
+    const ignored = getIgnoredFindings();
+    return new Set(ignored.map(f => `${f.reportUrl}::${f.stepTitle}`));
+  });
+
   const details = getCardDetails(report, extractedColors);
   const detail = cardKey ? details[cardKey] : null;
   const accent = detail?.accent ?? PRIMARY;
 
-  // Close on Escape key
+  const reportUrl = report?.url || '';
+  const allSteps = report?.remediation_steps || [];
+  const remediationSteps = showIgnored ? allSteps : allSteps.filter((s: any) => !isFindingIgnored(reportUrl, s.title));
+  const currentStep = remediationSteps[activeStep] || null;
+
+  const handleIgnore = (stepTitle: string) => {
+    addIgnoredFinding(reportUrl, stepTitle);
+    setIgnoredSet(new Set([...ignoredSet, `${reportUrl}::${stepTitle}`]));
+    if (activeStep >= remediationSteps.length - 1 && remediationSteps.length > 1) {
+      setActiveStep(activeStep - 1);
+    }
+  };
+
   useEffect(() => {
     if (!detail) return;
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -2242,11 +2710,28 @@ function CardDetailModal({ cardKey, report, extractedColors, onClose }: { cardKe
     return () => window.removeEventListener('keydown', handler);
   }, [detail, onClose]);
 
+  const copyToClipboard = async (text: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIdx(id);
+      setTimeout(() => setCopiedIdx(null), 2000);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopiedIdx(id);
+      setTimeout(() => setCopiedIdx(null), 2000);
+    }
+  };
+
   if (!detail) return null;
 
   return (
     <div className="rp-modal-backdrop" onClick={onClose}>
-      <div className="rp-modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="rp-modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: isRemediation ? '800px' : undefined }}>
         {/* Header */}
         <div className="p-6 pb-4 border-b border-white/10">
           <div className="flex items-start gap-4">
@@ -2282,33 +2767,161 @@ function CardDetailModal({ cardKey, report, extractedColors, onClose }: { cardKe
         </div>
 
         {/* Body */}
-        <div className="max-h-[60vh] overflow-y-auto px-6 py-5 space-y-6">
-          {detail.sections.map((sec) => (
-            <div key={sec.label}>
-              <h4 className="rp-label uppercase text-[#c2c6d6] mb-3">{sec.label}</h4>
-              <div className="rounded-lg border border-white/10 divide-y divide-white/10"
-                   style={{ backgroundColor: "rgba(255,255,255,0.03)" }}>
-                {sec.rows.map((r) => (
-                  <div key={r.k} className="flex items-start justify-between gap-4 px-4 py-3">
-                    <span className="text-[#c2c6d6] text-sm">{r.k}</span>
-                    <span className={r.mono ? "rp-mono text-right break-all" : "text-[#e1e2ec] text-sm text-right break-all"}>
-                      {r.v && (r.v.startsWith('http://') || r.v.startsWith('https://')) ? (
-                        <a href={r.v} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
-                          {r.v}
-                        </a>
-                      ) : (
-                        r.v
-                      )}
-                    </span>
-                  </div>
-                ))}
+          {isRemediation && remediationSteps.length > 0 ? (
+          <div className="flex flex-col md:flex-row max-h-[65vh]">
+            {/* Step sidebar */}
+            <div className="md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-white/10 overflow-y-auto p-3 space-y-1">
+              <div className="flex items-center justify-between mb-2 px-1">
+                <span className="text-[10px] text-slate-500 rp-mono">{remediationSteps.length} steps</span>
+                <button
+                  onClick={() => setShowIgnored(!showIgnored)}
+                  className={`text-[10px] px-2 py-0.5 rounded rp-mono transition-all cursor-pointer ${showIgnored ? 'bg-slate-500/20 text-slate-300' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  {showIgnored ? 'Hide Ignored' : 'Show Ignored'}
+                </button>
               </div>
+              {remediationSteps.map((step: any, idx: number) => {
+                const stepIgnored = isFindingIgnored(reportUrl, step.title);
+                return (
+                  <div key={idx} className="flex items-start gap-1">
+                    <button
+                      onClick={() => { setActiveStep(idx); setStepTab('nginx'); }}
+                      className={`flex-1 text-left px-3 py-2 rounded text-xs transition-all cursor-pointer ${
+                        activeStep === idx
+                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          : stepIgnored
+                            ? 'text-slate-500 hover:bg-white/5 border border-transparent line-through'
+                            : 'text-[#c2c6d6] hover:bg-white/5 border border-transparent'
+                      }`}
+                    >
+                      <div className="font-semibold mb-0.5">Step {idx + 1}</div>
+                      <div className="truncate opacity-80">{step.title}</div>
+                    </button>
+                    {!stepIgnored && (
+                      <button
+                        onClick={() => handleIgnore(step.title)}
+                        className="mt-1 p-1 rounded text-[10px] text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                        title="Mark as false positive"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          ))}
-          {detail.notes?.map((n) => (
-            <p key={n} className="rp-mono text-xs text-[#c2c6d6]">{n}</p>
-          ))}
-        </div>
+
+            {/* Step detail */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {currentStep && (
+                <>
+                  <div>
+                    <h4 className="text-amber-400 font-semibold text-sm mb-1">{currentStep.title}</h4>
+                    <p className="text-[#c2c6d6] text-xs leading-relaxed">{currentStep.description}</p>
+                  </div>
+
+                  {/* Tab switcher */}
+                  <div className="flex gap-2 border-b border-white/10 pb-2">
+                    <button
+                      onClick={() => setStepTab('nginx')}
+                      className={`text-xs px-3 py-1 rounded-t cursor-pointer transition-colors ${
+                        stepTab === 'nginx'
+                          ? 'text-white border-b-2 border-amber-400'
+                          : 'text-[#c2c6d6] hover:text-white'
+                      }`}
+                    >
+                      Nginx
+                    </button>
+                    <button
+                      onClick={() => setStepTab('apache')}
+                      className={`text-xs px-3 py-1 rounded-t cursor-pointer transition-colors ${
+                        stepTab === 'apache'
+                          ? 'text-white border-b-2 border-amber-400'
+                          : 'text-[#c2c6d6] hover:text-white'
+                      }`}
+                    >
+                      Apache
+                    </button>
+                    <div className="flex-1" />
+                    <button
+                      onClick={async () => {
+                        setVerifyLoading(true);
+                        setVerifyStatus(null);
+                        try {
+                          const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                          const res = await axios.post(`${apiBaseUrl}/api/enterprise/report/${report?.id}/verify-fix`);
+                          setVerifyStatus(res.data.message || 'Fix verified successfully');
+                        } catch (err: any) {
+                          setVerifyStatus(err.response?.data?.detail || 'Verification failed');
+                        } finally {
+                          setVerifyLoading(false);
+                        }
+                      }}
+                      disabled={verifyLoading}
+                      className="text-xs px-3 py-1 rounded cursor-pointer transition-colors font-semibold bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 disabled:opacity-50"
+                    >
+                      {verifyLoading ? 'Verifying...' : 'Verify Fix'}
+                    </button>
+                  </div>
+                  {verifyStatus && (
+                    <div className={`text-xs rp-mono px-3 py-1.5 rounded ${verifyStatus.includes('fail') || verifyStatus.includes('error') ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
+                      {verifyStatus}
+                    </div>
+                  )}
+
+                  {/* Code block */}
+                  <div className="relative group">
+                    <div
+                      className="rounded-lg border border-white/10 p-4 text-xs rp-mono leading-relaxed whitespace-pre-wrap overflow-x-auto max-h-64 overflow-y-auto"
+                      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+                    >
+                      <code>{stepTab === 'nginx' ? currentStep.nginx : currentStep.apache}</code>
+                    </div>
+                    <button
+                      onClick={() => copyToClipboard(stepTab === 'nginx' ? currentStep.nginx : currentStep.apache, `${activeStep}-${stepTab}`)}
+                      className="absolute top-2 right-2 px-2 py-1 rounded text-[10px] font-semibold transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                      style={{
+                        backgroundColor: copiedIdx === `${activeStep}-${stepTab}` ? '#10b981' : 'rgba(255,255,255,0.1)',
+                        color: copiedIdx === `${activeStep}-${stepTab}` ? 'white' : '#c2c6d6',
+                        border: '1px solid rgba(255,255,255,0.15)'
+                      }}
+                    >
+                      {copiedIdx === `${activeStep}-${stepTab}` ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="max-h-[60vh] overflow-y-auto px-6 py-5 space-y-6">
+            {detail.sections.map((sec) => (
+              <div key={sec.label}>
+                <h4 className="rp-label uppercase text-[#c2c6d6] mb-3">{sec.label}</h4>
+                <div className="rounded-lg border border-white/10 divide-y divide-white/10"
+                     style={{ backgroundColor: "rgba(255,255,255,0.03)" }}>
+                  {sec.rows.map((r) => (
+                    <div key={r.k} className="flex items-start justify-between gap-4 px-4 py-3">
+                      <span className="text-[#c2c6d6] text-sm">{r.k}</span>
+                      <span className={r.mono ? "rp-mono text-right break-all" : "text-[#e1e2ec] text-sm text-right break-all"}>
+                        {r.v && (r.v.startsWith('http://') || r.v.startsWith('https://')) ? (
+                          <a href={r.v} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                            {r.v}
+                          </a>
+                        ) : (
+                          r.v
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {detail.notes?.map((n) => (
+              <p key={n} className="rp-mono text-xs text-[#c2c6d6]">{n}</p>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

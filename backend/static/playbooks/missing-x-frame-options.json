@@ -1,0 +1,14 @@
+{
+  "id": "missing-x-frame-options",
+  "title": "Add X-Frame-Options Header",
+  "severity": "medium",
+  "description": "X-Frame-Options header prevents clickjacking by controlling whether the page can be embedded in a frame.",
+  "nginx": "add_header X-Frame-Options \"SAMEORIGIN\" always;",
+  "apache": "Header always set X-Frame-Options \"SAMEORIGIN\"",
+  "iis": "<system.webServer><httpProtocol><customHeaders><add name=\"X-Frame-Options\" value=\"SAMEORIGIN\"/></customHeaders></httpProtocol></system.webServer>",
+  "terraform": "resource \"aws_cloudfront_response_headers_policy\" \"security\" {\n  name = \"security-headers-policy\"\n  security_headers_config {\n    frame_options {\n      frame_option     = \"SAMEORIGIN\"\n      override         = true\n    }\n  }\n}",
+  "references": [
+    "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options",
+    "https://owasp.org/www-community/attacks/Clickjacking"
+  ]
+}

@@ -2048,6 +2048,76 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 </div>
               )}
 
+              {/* Exposed Secrets Scan */}
+              {report?.exposed_secrets && (
+                <div data-card="exposed_secrets" onClick={() => setActiveCard('exposed_secrets')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                  <SectionLabel>Exposed Secrets</SectionLabel>
+                  <div className="mt-2 text-xs rp-mono">
+                    <div className="flex justify-between border-b border-white/5 pb-1 mb-1">
+                      <span className="text-slate-400">Leaked Credentials</span>
+                      <span className={report.exposed_secrets.length > 0 ? 'text-red-400 font-semibold animate-pulse' : 'text-green-400'}>
+                        {report.exposed_secrets.length}
+                      </span>
+                    </div>
+                    {report.exposed_secrets.length > 0 && (
+                      <div className="text-[10px] text-slate-400 leading-snug mt-2 truncate">
+                        Alert: Exposed {report.exposed_secrets[0].type} found in client asset
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Cloud Asset Discovery */}
+              {report?.cloud_assets && (
+                <div data-card="cloud_assets" onClick={() => setActiveCard('cloud_assets')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                  <SectionLabel>Cloud Assets</SectionLabel>
+                  {(() => {
+                    const totalAssets = Object.values(report.cloud_assets).reduce((acc: number, list: any) => acc + list.length, 0);
+                    return (
+                      <div className="mt-2 text-xs rp-mono">
+                        <div className="flex justify-between border-b border-white/5 pb-1 mb-1">
+                          <span className="text-slate-400">Total Cloud Resources</span>
+                          <span className="text-[#3b82f6] font-semibold">{totalAssets}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {Object.keys(report.cloud_assets).slice(0, 3).map((svc: string) => (
+                            <span key={svc} className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20 uppercase">
+                              {svc}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* DNS Drift Monitor */}
+              {report?.dns_drift && (
+                <div data-card="dns_drift" onClick={() => setActiveCard('dns_drift')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                  <SectionLabel>DNS Record Drift</SectionLabel>
+                  {(() => {
+                    const changes = Object.keys(report.dns_drift).length;
+                    return (
+                      <div className="mt-2 text-xs rp-mono">
+                        <div className="flex justify-between border-b border-white/5 pb-1 mb-1">
+                          <span className="text-slate-400">Detected Changes</span>
+                          <span className={changes > 0 ? 'text-amber-400 font-semibold' : 'text-green-400'}>
+                            {changes > 0 ? `${changes} changes` : 'No drift'}
+                          </span>
+                        </div>
+                        {changes > 0 && (
+                          <div className="text-[10px] text-slate-400 leading-snug mt-2 truncate">
+                            Drift: {Object.keys(report.dns_drift).join(', ')} records updated
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
               {/* Findings Severity Table */}
               {report?.findings && report.findings.length > 0 && (
                 <Suspense fallback={
@@ -2707,6 +2777,51 @@ const getCardDetails = (report: any, extractedColors: any): Record<string, Detai
           { k: "Apache Config", v: step.apache || "N/A", mono: true }
         ]
       }))
+    },
+    exposed_secrets: {
+      title: "Exposed Secrets Scan",
+      subtitle: `Detected API credentials and access tokens (${report?.exposed_secrets?.length || 0} found)`,
+      icon: "key",
+      accent: "#ef4444",
+      sections: [
+        { label: "Secrets Leak Summary", rows: [
+          { k: "Total Leaked Credentials", v: String(report?.exposed_secrets?.length || 0) },
+        ]},
+        ...(report?.exposed_secrets || []).map((sec: any, idx: number) => ({
+          label: `Secret #${idx + 1}: ${sec.type}`,
+          rows: [
+            { k: "File URL", v: sec.file_url },
+            { k: "Line Number", v: String(sec.line_number) },
+            { k: "Severity", v: sec.severity },
+            { k: "Snippet", v: sec.snippet || "—", mono: true }
+          ]
+        }))
+      ]
+    },
+    cloud_assets: {
+      title: "Cloud Infrastructure Scan",
+      subtitle: `Discovered cloud assets and bucket exposure`,
+      icon: "cloud",
+      accent: "#3b82f6",
+      sections: Object.entries(report?.cloud_assets || {}).map(([service, assets]: [string, any]) => ({
+        label: `${service.toUpperCase()} Service`,
+        rows: assets.map((asset: any) => ({
+          k: asset.name || "Asset",
+          v: `${asset.type || "Resource"} (${asset.exposure || "Private"})`
+        }))
+      }))
+    },
+    dns_drift: {
+      title: "DNS Record Drift Monitor",
+      subtitle: "Detected changes in zone files vs. historical baseline",
+      icon: "history",
+      accent: "#10b981",
+      sections: [
+        { label: "Drift Summary", rows: Object.entries(report?.dns_drift || {}).map(([recordType, change]: [string, any]) => ({
+          k: `${recordType} Record`,
+          v: change.status === "added" ? `Added: ${change.value}` : change.status === "removed" ? `Removed: ${change.value}` : `Changed: ${change.old} -> ${change.new}`
+        })) }
+      ]
     }
   };
 };

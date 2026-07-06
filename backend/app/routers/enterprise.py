@@ -17,6 +17,16 @@ from urllib.parse import urlparse
 router = APIRouter(prefix="/api/enterprise", tags=["enterprise"])
 
 
+@router.get("/health/config")
+async def check_config():
+    return {
+        "shodan_enabled": bool(os.getenv("SHODAN_API_KEY")),
+        "discord_enabled": bool(os.getenv("DISCORD_WEBHOOK_URL")),
+        "supabase_connected": bool(os.getenv("SUPABASE_URL")),
+        "template_scanner": os.getenv("ENABLE_TEMPLATE_SCANNER") == "true"
+    }
+
+
 class TagRequest(BaseModel):
     subdomain: str
     business_criticality: str

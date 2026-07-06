@@ -17,18 +17,22 @@ export function Dashboard() {
   
   // Dynamic report polling state
   const [urlInput, setUrlInput] = useState('');
+  const [urlInputB, setUrlInputB] = useState('');
   const [activeReportId, setActiveReportId] = useState<string | null>(null);
+  const [activeReportIdB, setActiveReportIdB] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
   const [exported, setExported] = useState(false);
-
+  const [compareMode, setCompareMode] = useState(false);
 
   const [extractedColors, setExtractedColors] = useState<{ dominant: string; palette: string[] } | null>(null);
-
+  const [extractedColorsB, setExtractedColorsB] = useState<{ dominant: string; palette: string[] } | null>(null);
 
   const { report, status } = useReportStream(activeReportId);
+  const { report: reportB, status: statusB } = useReportStream(activeReportIdB);
   const [historyList, setHistoryList] = useState<any[]>([]);
+
 
   // Load history from localStorage
   useEffect(() => {
@@ -112,6 +116,46 @@ export function Dashboard() {
     img.src = report.screenshot_url;
   }, [report?.screenshot_url]);
 
+  // Extract color palette from B screenshot image using Canvas
+  useEffect(() => {
+    if (!reportB?.screenshot_url) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 50;
+        canvas.height = 50;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, 50, 50);
+        const imageData = ctx.getImageData(0, 0, 50, 50).data;
+        const colorMap: Record<string, number> = {};
+        for (let i = 0; i < imageData.length; i += 4) {
+          const r = Math.round(imageData[i] / 32) * 32;
+          const g = Math.round(imageData[i+1] / 32) * 32;
+          const b = Math.round(imageData[i+2] / 32) * 32;
+          const key = `${r},${g},${b}`;
+          colorMap[key] = (colorMap[key] || 0) + 1;
+        }
+        const sorted = Object.entries(colorMap)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 6)
+          .map(([key]) => {
+            const [r, g, b] = key.split(',');
+            return `#${parseInt(r).toString(16).padStart(2, '0')}${parseInt(g).toString(16).padStart(2, '0')}${parseInt(b).toString(16).padStart(2, '0')}`;
+          });
+        setExtractedColorsB({
+          dominant: sorted[0] || '#000000',
+          palette: sorted
+        });
+      } catch(e) {
+        console.warn('color extraction B failed', e);
+      }
+    };
+    img.src = reportB.screenshot_url;
+  }, [reportB?.screenshot_url]);
+
   // Auto load report from path on mount
   useEffect(() => {
     const path = window.location.pathname;
@@ -121,6 +165,12 @@ export function Dashboard() {
         setActiveReportId(id);
       }
     }
+    const params = new URLSearchParams(window.location.search);
+    const vs = params.get('vs');
+    if (vs) {
+      setActiveReportIdB(vs);
+      setCompareMode(true);
+    }
   }, []);
 
   const handleScan = async (e: React.FormEvent) => {
@@ -129,9 +179,19 @@ export function Dashboard() {
     setSubmitting(true);
     try {
       const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const { data } = await axios.post(`${apiBaseUrl}/api/report`, { url: urlInput });
-      setActiveReportId(data.report_id);
-      window.history.pushState(null, '', `/r/${data.report_id}`);
+      if (compareMode && urlInputB) {
+        const [resA, resB] = await Promise.all([
+          axios.post(`${apiBaseUrl}/api/report`, { url: urlInput }),
+          axios.post(`${apiBaseUrl}/api/report`, { url: urlInputB })
+        ]);
+        setActiveReportId(resA.data.report_id);
+        setActiveReportIdB(resB.data.report_id);
+        window.history.pushState(null, '', `/r/${resA.data.report_id}?vs=${resB.data.report_id}`);
+      } else {
+        const { data } = await axios.post(`${apiBaseUrl}/api/report`, { url: urlInput });
+        setActiveReportId(data.report_id);
+        window.history.pushState(null, '', `/r/${data.report_id}`);
+      }
     } catch (err) {
       console.error(err);
       alert('Failed to start website intelligence scan.');
@@ -139,6 +199,19 @@ export function Dashboard() {
       setSubmitting(false);
     }
   };
+
+  const getSecurityScore = (grade?: string) => {
+    if (!grade) return 0;
+    const g = grade.toUpperCase();
+    if (g.includes('A+')) return 7;
+    if (g.includes('A')) return 6;
+    if (g.includes('B')) return 5;
+    if (g.includes('C')) return 4;
+    if (g.includes('D')) return 3;
+    if (g.includes('F')) return 1;
+    return 2;
+  };
+
 
   const handleShare = () => {
     if (!activeReportId) return;
@@ -181,6 +254,8 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
 
 
   const isLoading = status === 'pending';
+  const isLoadingB = statusB === 'pending';
+
 
   // WebGL Background effect
   useEffect(() => {
@@ -388,6 +463,12 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
             <h2 className="rp-headline md:hidden" style={{ color: PRIMARY }}>Recon Pulse</h2>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setCompareMode(!compareMode)}
+              className={`border border-white/10 px-4 py-2 rounded-lg rp-title transition-all hover:bg-white/10 cursor-pointer ${compareMode ? 'bg-blue-600/30 text-blue-400 border-blue-500/50' : 'bg-white/5 text-slate-300'}`}
+            >
+              {compareMode ? '✓ Compare Mode' : 'Compare'}
+            </button>
             {activeReportId && (
               <div className="flex items-center gap-2">
                 <button
@@ -407,6 +488,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
               </div>
             )}
 
+
             <div className="w-8 h-8 rounded-full border border-white/20 overflow-hidden" style={{ boxShadow: "0 0 10px rgba(173,198,255,0.2)" }}>
               <img alt="Analyst avatar" className="w-full h-full object-cover" src={AVATAR_URL} />
             </div>
@@ -416,31 +498,51 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
         <div className="p-6 md:p-10 max-w-[1600px] mx-auto w-full flex-1">
           {/* Search */}
           <div className="mb-12 flex flex-col items-center justify-center w-full relative z-20">
-            <form onSubmit={handleScan} className="relative w-full max-w-2xl flex items-center mb-4">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none" style={{ color: PRIMARY }}>
-                <span className="mso animate-pulse">radar</span>
+            <form onSubmit={handleScan} className="relative w-full max-w-4xl flex flex-col md:flex-row gap-4 items-center mb-4">
+              <div className="relative flex-1 w-full">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none" style={{ color: PRIMARY }}>
+                  <span className="mso animate-pulse">radar</span>
+                </div>
+                <input
+                  type="text"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  placeholder="First target domain or IP..."
+                  className="w-full border border-white/20 rounded-full py-4 pl-12 pr-6 rp-mono text-[#e1e2ec] focus:outline-none focus:border-blue-500"
+                  style={{
+                    backgroundColor: "rgba(10,10,10,0.6)",
+                    backdropFilter: "blur(24px) saturate(180%)",
+                  }}
+                />
               </div>
-              <input
-                type="text"
-                value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
-                placeholder="Enter target domain or IP..."
-                className="w-full border border-white/20 rounded-full py-4 pl-12 pr-28 rp-mono text-[#e1e2ec] focus:outline-none focus:border-blue-500"
-                style={{
-                  backgroundColor: "rgba(10,10,10,0.6)",
-                  backdropFilter: "blur(24px) saturate(180%)",
-                  boxShadow: "0 0 30px rgba(59,130,246,0.35)",
-                }}
-              />
+              {compareMode && (
+                <div className="relative flex-1 w-full">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none" style={{ color: PRIMARY }}>
+                    <span className="mso animate-pulse">radar</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={urlInputB}
+                    onChange={(e) => setUrlInputB(e.target.value)}
+                    placeholder="Second target domain or IP..."
+                    className="w-full border border-white/20 rounded-full py-4 pl-12 pr-6 rp-mono text-[#e1e2ec] focus:outline-none focus:border-blue-500"
+                    style={{
+                      backgroundColor: "rgba(10,10,10,0.6)",
+                      backdropFilter: "blur(24px) saturate(180%)",
+                    }}
+                  />
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={submitting}
-                className="absolute right-2 top-1/2 rp-breathe text-white border border-blue-400/30 px-6 py-2 rounded-full rp-title transition-all cursor-pointer disabled:opacity-50"
+                className="rp-breathe text-white border border-blue-400/30 px-8 py-4 rounded-full rp-title transition-all cursor-pointer disabled:opacity-50 shrink-0"
                 style={{ backgroundColor: "rgba(37,99,235,0.9)", backdropFilter: "blur(12px)" }}
               >
                 {submitting ? 'Pulse...' : 'Scan'}
               </button>
             </form>
+
             {historyList.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 max-w-2xl justify-center">
                 <span className="text-xs text-slate-400 rp-mono">Recent:</span>
@@ -477,39 +579,86 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
               <div data-card="screenshot" role="button" tabIndex={0} className={`rp-bento col-span-1 md:col-span-8 rounded-xl p-6 min-h-[400px] flex flex-col ${isLoading ? 'rp-shimmer' : ''}`}>
                 <SectionLabel>Screenshot Preview</SectionLabel>
                 <div className="flex-1 bg-black/40 rounded-lg border border-white/5 overflow-hidden relative">
-                  {isLoading ? (
-                    <div className="w-full h-full flex items-center justify-center text-slate-500 rp-mono">Capturing screenshot...</div>
-                  ) : report?.screenshot_url ? (
-                    <>
-                      <img src={report?.screenshot_url} alt="Site screenshot" className="w-full h-full object-cover opacity-90 mix-blend-screen" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a]/90 via-transparent to-transparent" />
-                    </>
+                  {!compareMode ? (
+                    isLoading ? (
+                      <div className="w-full h-full flex items-center justify-center text-slate-500 rp-mono">Capturing screenshot...</div>
+                    ) : report?.screenshot_url ? (
+                      <>
+                        <img src={report?.screenshot_url} alt="Site screenshot" className="w-full h-full object-cover opacity-90 mix-blend-screen" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a]/90 via-transparent to-transparent" />
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[#c2c6d6] rp-mono text-xs">No screenshot captured</div>
+                    )
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-[#c2c6d6] rp-mono text-xs">No screenshot captured</div>
+                    <div className="grid grid-cols-2 h-full divide-x divide-white/10">
+                      <div className="relative h-full">
+                        {isLoading ? (
+                          <div className="w-full h-full flex items-center justify-center text-slate-500 rp-mono text-xs">Loading A...</div>
+                        ) : report?.screenshot_url ? (
+                          <img src={report.screenshot_url} className="w-full h-full object-cover opacity-80" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-500 rp-mono text-xs">No screenshot A</div>
+                        )}
+                        <div className="absolute bottom-2 left-2 bg-black/75 px-2 py-0.5 rounded text-[10px] rp-mono text-slate-300">A: {report?.url?.replace(/^https?:\/\/(www\.)?/, '')}</div>
+                      </div>
+                      <div className="relative h-full">
+                        {isLoadingB ? (
+                          <div className="w-full h-full flex items-center justify-center text-slate-500 rp-mono text-xs">Loading B...</div>
+                        ) : reportB?.screenshot_url ? (
+                          <img src={reportB.screenshot_url} className="w-full h-full object-cover opacity-80" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-500 rp-mono text-xs">No screenshot B</div>
+                        )}
+                        <div className="absolute bottom-2 left-2 bg-black/75 px-2 py-0.5 rounded text-[10px] rp-mono text-slate-300">B: {reportB?.url?.replace(/^https?:\/\/(www\.)?/, '')}</div>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
+
 
               {/* Tech stack */}
               <div data-card="tech" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col min-h-[220px]">
                 <SectionLabel>Tech Stack</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-sm mt-auto">Detecting technologies...</div>
-                ) : (report?.tech_stack?.technologies || []).length > 0 ? (
-                  <div className="flex flex-wrap gap-2 mt-auto">
-                    {(report?.tech_stack?.technologies || []).slice(0, 6).map((t: string) => (
-                      <span
-                        key={t}
-                        className="border border-white/10 px-3 py-1 rounded-full rp-mono flex items-center gap-2 text-xs"
-                        style={{ backgroundColor: "rgba(255,255,255,0.05)", color: PRIMARY }}
-                      >
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: PRIMARY, boxShadow: "0 0 5px rgba(173,198,255,0.8)" }} />
-                        {t}
-                      </span>
-                    ))}
-                  </div>
+                ) : !compareMode ? (
+                  (report?.tech_stack?.technologies || []).length > 0 ? (
+                    <div className="flex flex-wrap gap-2 mt-auto">
+                      {(report?.tech_stack?.technologies || []).slice(0, 6).map((t: string) => (
+                        <span
+                          key={t}
+                          className="border border-white/10 px-3 py-1 rounded-full rp-mono flex items-center gap-2 text-xs"
+                          style={{ backgroundColor: "rgba(255,255,255,0.05)", color: PRIMARY }}
+                        >
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: PRIMARY, boxShadow: "0 0 5px rgba(173,198,255,0.8)" }} />
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No technologies detected.</div>
+                  )
                 ) : (
-                  <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No technologies detected.</div>
+                  <div className="grid grid-cols-2 gap-4 mt-2 rp-mono text-xs h-full">
+                    <div>
+                      <div className="text-slate-400 mb-1 text-[10px]">A: {report?.url?.replace(/^https?:\/\/(www\.)?/, '')}</div>
+                      <div className="flex flex-wrap gap-1 max-h-[120px] overflow-y-auto">
+                        {(report?.tech_stack?.technologies || []).slice(0, 4).map((t: string) => (
+                          <span key={t} className="bg-white/5 px-2 py-0.5 rounded text-[10px] text-slate-300 border border-white/5">{t}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1 text-[10px]">B: {reportB?.url?.replace(/^https?:\/\/(www\.)?/, '')}</div>
+                      <div className="flex flex-wrap gap-1 max-h-[120px] overflow-y-auto">
+                        {(reportB?.tech_stack?.technologies || []).slice(0, 4).map((t: string) => (
+                          <span key={t} className="bg-white/5 px-2 py-0.5 rounded text-[10px] text-slate-300 border border-white/5">{t}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -518,19 +667,33 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 <SectionLabelAbs>Security Grade</SectionLabelAbs>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-sm mt-8">Analyzing...</div>
-                ) : (
+                ) : !compareMode ? (
                   <div className="font-bold mt-8 text-[80px] leading-none" style={{ color: "#34d399", textShadow: "0 0 25px rgba(52,211,153,0.5)" }}>
                     {report?.security?.ssl_grade || '?'}
                   </div>
+                ) : (
+                  <div className="grid grid-cols-2 w-full mt-6 text-center">
+                    <div className={getSecurityScore(report?.security?.ssl_grade) >= getSecurityScore(reportB?.security?.ssl_grade) ? "text-green-400 font-bold" : "text-slate-400"}>
+                      <div className="text-[10px] rp-mono">A</div>
+                      <div className="text-4xl mt-2">{report?.security?.ssl_grade || '?'}</div>
+                      {getSecurityScore(report?.security?.ssl_grade) >= getSecurityScore(reportB?.security?.ssl_grade) && <div className="text-[10px] mt-1 text-green-500">★ Winner</div>}
+                    </div>
+                    <div className={`border-l border-white/10 ${getSecurityScore(reportB?.security?.ssl_grade) >= getSecurityScore(report?.security?.ssl_grade) ? "text-green-400 font-bold" : "text-slate-400"}`}>
+                      <div className="text-[10px] rp-mono">B</div>
+                      <div className="text-4xl mt-2">{reportB?.security?.ssl_grade || '?'}</div>
+                      {getSecurityScore(reportB?.security?.ssl_grade) >= getSecurityScore(report?.security?.ssl_grade) && <div className="text-[10px] mt-1 text-green-500">★ Winner</div>}
+                    </div>
+                  </div>
                 )}
               </div>
+
 
               {/* Performance */}
               <div data-card="performance" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-3 rounded-xl p-6 flex flex-col items-center justify-center">
                 <SectionLabelAbs>Performance</SectionLabelAbs>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-sm mt-8">Calculating...</div>
-                ) : (
+                ) : !compareMode ? (
                   <div className="relative w-32 h-32 mt-8 flex items-center justify-center">
                     <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
                       <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="10" />
@@ -544,22 +707,53 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                       </span>
                     </div>
                   </div>
+                ) : (
+                  <div className="grid grid-cols-2 w-full mt-6 text-center">
+                    <div className={(report?.performance?.performance_score || 0) >= (reportB?.performance?.performance_score || 0) ? "text-green-400 font-bold" : "text-slate-400"}>
+                      <div className="text-[10px] rp-mono">A</div>
+                      <div className="text-3xl mt-2">{report?.performance?.performance_score !== null ? `${report.performance.performance_score}%` : '?'}</div>
+                      {(report?.performance?.performance_score || 0) >= (reportB?.performance?.performance_score || 0) && <div className="text-[10px] mt-1 text-green-500">★ Winner</div>}
+                    </div>
+                    <div className={`border-l border-white/10 ${(reportB?.performance?.performance_score || 0) >= (report?.performance?.performance_score || 0) ? "text-green-400 font-bold" : "text-slate-400"}`}>
+                      <div className="text-[10px] rp-mono">B</div>
+                      <div className="text-3xl mt-2">{reportB?.performance?.performance_score !== null ? `${reportB.performance.performance_score}%` : '?'}</div>
+                      {(reportB?.performance?.performance_score || 0) >= (report?.performance?.performance_score || 0) && <div className="text-[10px] mt-1 text-green-500">★ Winner</div>}
+                    </div>
+                  </div>
                 )}
               </div>
 
               {/* Hosting */}
               <GlassCard cardKey="hosting" label="Hosting Info" icon="lock" title="Classified Host Data" span={6} loading={isLoading}>
-                <KV k="Provider" v={report?.hosting?.isp || 'Unknown'} />
-                <KV k="Location" v={`${report?.hosting?.city || ''}, ${report?.hosting?.country || 'Unknown'}`} />
-                <KV k="IP Address" v={report?.hosting?.ip || 'Unknown'} vClass="text-[#adc6ff]" last />
+                {!compareMode ? (
+                  <>
+                    <KV k="Provider" v={report?.hosting?.isp || 'Unknown'} />
+                    <KV k="Location" v={`${report?.hosting?.city || ''}, ${report?.hosting?.country || 'Unknown'}`} />
+                    <KV k="IP Address" v={report?.hosting?.ip || 'Unknown'} vClass="text-[#adc6ff]" last />
+                  </>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 text-xs rp-mono">
+                    <div>
+                      <div className="text-slate-400 mb-1 text-[10px]">A</div>
+                      <KV k="ISP" v={report?.hosting?.isp || 'Unknown'} />
+                      <KV k="IP" v={report?.hosting?.ip || 'Unknown'} last />
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1 text-[10px]">B</div>
+                      <KV k="ISP" v={reportB?.hosting?.isp || 'Unknown'} />
+                      <KV k="IP" v={reportB?.hosting?.ip || 'Unknown'} last />
+                    </div>
+                  </div>
+                )}
               </GlassCard>
+
 
               {/* Domain Age */}
               <div data-card="domain" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-3 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
                 <SectionLabel>Domain Age</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs">Parsing history...</div>
-                ) : (
+                ) : !compareMode ? (
                   <>
                     <div className="rp-headline font-light">
                       {report?.domain?.age_days !== null && report?.domain?.age_days !== undefined ? (
@@ -572,6 +766,21 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                       Created: {report?.domain?.created || 'Unknown'}
                     </div>
                   </>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 rp-mono text-xs mt-auto">
+                    <div>
+                      <div className="text-slate-400">A</div>
+                      <div className="font-semibold text-white mt-1 text-lg">
+                        {report?.domain?.age_days !== null && report?.domain?.age_days !== undefined ? `${Math.floor(report.domain.age_days / 365)}y` : 'N/A'}
+                      </div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400">B</div>
+                      <div className="font-semibold text-white mt-1 text-lg">
+                        {reportB?.domain?.age_days !== null && reportB?.domain?.age_days !== undefined ? `${Math.floor(reportB.domain.age_days / 365)}y` : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -580,17 +789,38 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 <SectionLabel>Recent Mentions</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs mt-auto">Searching news...</div>
-                ) : (report?.news || []).length > 0 ? (
-                  <ul className="space-y-4 mt-auto">
-                    {(report?.news || []).slice(0, 2).map((n: any, idx: number) => (
-                      <li key={idx} className="border-b border-white/10 pb-3 last:border-0 last:pb-0">
-                        <p className="text-sm leading-6 text-[#e1e2ec] line-clamp-1">{n?.title}</p>
-                        <span className="rp-mono text-xs" style={{ color: PRIMARY }}>{n?.source} · {n?.date || 'recent'}</span>
-                      </li>
-                    ))}
-                  </ul>
+                ) : !compareMode ? (
+                  (report?.news || []).length > 0 ? (
+                    <ul className="space-y-4 mt-auto">
+                      {(report?.news || []).slice(0, 2).map((n: any, idx: number) => (
+                        <li key={idx} className="border-b border-white/10 pb-3 last:border-0 last:pb-0">
+                          <p className="text-sm leading-6 text-[#e1e2ec] line-clamp-1">{n?.title}</p>
+                          <span className="rp-mono text-xs" style={{ color: PRIMARY }}>{n?.source} · {n?.date || 'recent'}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No news mentions found</div>
+                  )
                 ) : (
-                  <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No news mentions found</div>
+                  <div className="grid grid-cols-2 gap-4 text-xs rp-mono mt-auto">
+                    <div>
+                      <div className="text-slate-400 mb-1 text-[10px]">A Mentions</div>
+                      <ul className="space-y-2">
+                        {(report?.news || []).slice(0, 2).map((n: any, idx: number) => (
+                          <li key={idx} className="truncate text-slate-300">{n.title}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1 text-[10px]">B Mentions</div>
+                      <ul className="space-y-2">
+                        {(reportB?.news || []).slice(0, 2).map((n: any, idx: number) => (
+                          <li key={idx} className="truncate text-slate-300">{n.title}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -599,60 +829,94 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 <SectionLabelAbs>GitHub Activity</SectionLabelAbs>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs mt-8">Checking...</div>
-                ) : report?.github?.exists ? (
-                  <div className="flex gap-8 mt-8">
-                    {[
-                      { icon: "star", label: "Repos", val: report?.github?.repos || 0 },
-                      { icon: "group", label: "Followers", val: report?.github?.followers || 0 },
-                    ].map((s) => (
-                      <div key={s.label}>
-                        <div className="flex items-center gap-2 text-[#c2c6d6] mb-1">
-                          <span className="mso text-sm" style={{ color: "rgba(173,198,255,0.7)" }}>{s.icon}</span>
-                          <span className="rp-label">{s.label}</span>
+                ) : !compareMode ? (
+                  report?.github?.exists ? (
+                    <div className="flex gap-8 mt-8">
+                      {[
+                        { icon: "star", label: "Repos", val: report?.github?.repos || 0 },
+                        { icon: "group", label: "Followers", val: report?.github?.followers || 0 },
+                      ].map((s) => (
+                        <div key={s.label}>
+                          <div className="flex items-center gap-2 text-[#c2c6d6] mb-1">
+                            <span className="mso text-sm" style={{ color: "rgba(173,198,255,0.7)" }}>{s.icon}</span>
+                            <span className="rp-label">{s.label}</span>
+                          </div>
+                          <div className="rp-headline">{s.val}</div>
                         </div>
-                        <div className="rp-headline">{s.val}</div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[#c2c6d6] rp-mono text-xs mt-8">No public profile found</div>
+                  )
                 ) : (
-                  <div className="text-[#c2c6d6] rp-mono text-xs mt-8">No public profile found</div>
+                  <div className="grid grid-cols-2 gap-4 mt-8 rp-mono text-xs text-center">
+                    <div>
+                      <div className="text-slate-400">A</div>
+                      <div className="text-lg font-bold text-white mt-1">{report?.github?.exists ? `${report.github.repos} repos` : 'No Profile'}</div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400">B</div>
+                      <div className="text-lg font-bold text-white mt-1">{reportB?.github?.exists ? `${reportB.github.repos} repos` : 'No Profile'}</div>
+                    </div>
+                  </div>
                 )}
               </div>
+
 
               {/* Palette */}
               <div data-card="palette" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col min-h-[220px]">
                 <SectionLabel>Extracted Palette</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs mt-auto">Extracting colors...</div>
-                                ) : (extractedColors?.palette && extractedColors.palette.length > 0) ? (
-                  <div className="flex gap-4 mt-auto h-20">
-                    {extractedColors.palette.map((c: string) => (
-                      <div 
-                        key={c} 
-                        className="flex-1 rounded-lg border border-white/20 relative group overflow-hidden cursor-pointer"
-                        style={{ backgroundColor: c, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigator.clipboard.writeText(c);
-                          setCopiedHex(c);
-                          setTimeout(() => setCopiedHex(null), 2000);
-                        }}
-                      >
-                        <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity backdrop-blur-sm">
-                          <span className="rp-mono text-white text-xs select-all">{c}</span>
-                          <span className="text-[10px] text-slate-400 mt-1">Click to copy</span>
-                        </div>
-                        {copiedHex === c && (
-                          <div className="absolute inset-0 bg-green-600/90 flex items-center justify-center text-white text-xs font-bold rp-mono">
-                            Copied!
+                ) : !compareMode ? (
+                  (extractedColors?.palette && extractedColors.palette.length > 0) ? (
+                    <div className="flex gap-4 mt-auto h-20">
+                      {extractedColors.palette.map((c: string) => (
+                        <div 
+                          key={c} 
+                          className="flex-1 rounded-lg border border-white/20 relative group overflow-hidden cursor-pointer"
+                          style={{ backgroundColor: c, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(c);
+                            setCopiedHex(c);
+                            setTimeout(() => setCopiedHex(null), 2000);
+                          }}
+                        >
+                          <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity backdrop-blur-sm">
+                            <span className="rp-mono text-white text-xs select-all">{c}</span>
+                            <span className="text-[10px] text-slate-400 mt-1">Click to copy</span>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
+                          {copiedHex === c && (
+                            <div className="absolute inset-0 bg-green-600/90 flex items-center justify-center text-white text-xs font-bold rp-mono">
+                              Copied!
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No palette available</div>
+                  )
                 ) : (
-                  <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No palette available</div>
+                  <div className="grid grid-cols-2 gap-4 mt-auto">
+                    <div>
+                      <div className="text-[10px] text-slate-400 rp-mono mb-1">A Palette</div>
+                      <div className="flex gap-1 h-10">
+                        {(extractedColors?.palette || []).slice(0, 3).map((c: string) => (
+                          <div key={c} className="flex-1 rounded" style={{ backgroundColor: c }} />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-[10px] text-slate-400 rp-mono mb-1">B Palette</div>
+                      <div className="flex gap-1 h-10">
+                        {(extractedColorsB?.palette || []).slice(0, 3).map((c: string) => (
+                          <div key={c} className="flex-1 rounded" style={{ backgroundColor: c }} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -661,7 +925,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 <SectionLabelAbs>Carbon Impact</SectionLabelAbs>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs mt-6">Analyzing eco...</div>
-                ) : (
+                ) : !compareMode ? (
                   <div className="mt-6 flex flex-col items-center">
                     <div className="w-16 h-16 rounded-full flex items-center justify-center mb-3 border"
                          style={{ backgroundColor: "rgba(255,255,255,0.05)", borderColor: "rgba(16,185,129,0.3)", boxShadow: "0 0 20px rgba(16,185,129,0.15)" }}>
@@ -672,19 +936,47 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                       {report?.carbon?.grams_per_view ? `${report?.carbon?.grams_per_view}g CO2` : '0.12g CO2'}
                     </span>
                   </div>
+                ) : (
+                  <div className="grid grid-cols-2 w-full mt-6 text-center">
+                    <div className={(report?.carbon?.grams_per_view || 99) <= (reportB?.carbon?.grams_per_view || 99) ? "text-green-400 font-bold" : "text-slate-400"}>
+                      <div className="text-[10px] rp-mono">A</div>
+                      <div className="text-lg mt-1">{report?.carbon?.rating || 'Low'}</div>
+                      <div className="text-[10px] text-slate-400">{report?.carbon?.grams_per_view ? `${report.carbon.grams_per_view}g` : 'N/A'}</div>
+                      {(report?.carbon?.grams_per_view || 99) <= (reportB?.carbon?.grams_per_view || 99) && <div className="text-[10px] mt-1 text-green-500">★ Winner</div>}
+                    </div>
+                    <div className={`border-l border-white/10 ${(reportB?.carbon?.grams_per_view || 99) <= (report?.carbon?.grams_per_view || 99) ? "text-green-400 font-bold" : "text-slate-400"}`}>
+                      <div className="text-[10px] rp-mono">B</div>
+                      <div className="text-lg mt-1">{reportB?.carbon?.rating || 'Low'}</div>
+                      <div className="text-[10px] text-slate-400">{reportB?.carbon?.grams_per_view ? `${reportB.carbon.grams_per_view}g` : 'N/A'}</div>
+                      {(reportB?.carbon?.grams_per_view || 99) <= (report?.carbon?.grams_per_view || 99) && <div className="text-[10px] mt-1 text-green-500">★ Winner</div>}
+                    </div>
+                  </div>
                 )}
               </div>
 
               {/* DNS */}
               <GlassCard cardKey="dns" label="DNS Records" icon="dns" title="Protected Zone Data" span={5} loading={isLoading}>
-                {report?.dns_records?.A ? (
-                  <>
-                    <DnsRow t="A" v={report?.dns_records?.A?.[0]} />
-                    {report?.dns_records?.AAAA?.[0] && <DnsRow t="AAAA" v={report?.dns_records?.AAAA?.[0]} />}
-                    {report?.dns_records?.MX?.[0] && <DnsRow t="MX" v={report?.dns_records?.MX?.[0]} last />}
-                  </>
+                {!compareMode ? (
+                  report?.dns_records?.A ? (
+                    <>
+                      <DnsRow t="A" v={report?.dns_records?.A?.[0]} />
+                      {report?.dns_records?.AAAA?.[0] && <DnsRow t="AAAA" v={report?.dns_records?.AAAA?.[0]} />}
+                      {report?.dns_records?.MX?.[0] && <DnsRow t="MX" v={report?.dns_records?.MX?.[0]} last />}
+                    </>
+                  ) : (
+                    <div className="text-[#c2c6d6] text-xs rp-mono">No DNS resolved</div>
+                  )
                 ) : (
-                  <div className="text-[#c2c6d6] text-xs rp-mono">No DNS resolved</div>
+                  <div className="grid grid-cols-2 gap-4 text-xs rp-mono">
+                    <div>
+                      <div className="text-slate-400 mb-1 text-[10px]">A DNS</div>
+                      <DnsRow t="A" v={report?.dns_records?.A?.[0]} last />
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1 text-[10px]">B DNS</div>
+                      <DnsRow t="A" v={reportB?.dns_records?.A?.[0]} last />
+                    </div>
+                  </div>
                 )}
               </GlassCard>
 
@@ -693,7 +985,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 <SectionLabelAbs>Global Traffic Rank</SectionLabelAbs>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs mt-8">Loading rank...</div>
-                ) : (
+                ) : !compareMode ? (
                   <>
                     <div className="mt-8 flex items-end gap-3">
                       <span className="rp-display font-bold">
@@ -707,30 +999,60 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                       <div className="h-full w-3/4" style={{ backgroundColor: PRIMARY, boxShadow: "0 0 12px rgba(173,198,255,0.9)" }} />
                     </div>
                   </>
+                ) : (
+                  <div className="grid grid-cols-2 w-full mt-8 text-center text-xs rp-mono">
+                    <div>
+                      <div className="text-slate-400">A Rank</div>
+                      <div className="text-md font-bold text-white mt-1">
+                        {report?.traffic?.tranco_rank ? `#${report.traffic.tranco_rank.toLocaleString()}` : 'N/A'}
+                      </div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400">B Rank</div>
+                      <div className="text-md font-bold text-white mt-1">
+                        {reportB?.traffic?.tranco_rank ? `#${reportB.traffic.tranco_rank.toLocaleString()}` : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
+
               {/* Redirect Chain */}
               <div data-card="redirect_chain" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+
                 <SectionLabel>Redirect Chain</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs">Tracking redirects...</div>
-                ) : (report?.redirect_chain?.hops || []).length > 0 ? (
-                  <div className="space-y-1 mt-2 rp-mono text-xs">
-                    {(report.redirect_chain.hops || []).map((hop: any, idx: number) => {
-                      const isSuccess = hop.status === 200;
-                      const isRedirect = hop.status >= 300 && hop.status < 400;
-                      const statusColor = isSuccess ? 'text-green-400' : isRedirect ? 'text-orange-400' : 'text-red-400';
-                      return (
-                        <div key={idx} className="flex justify-between items-center border-b border-white/5 pb-1">
-                          <span className="truncate max-w-[70%]">{hop.url.replace(/^https?:\/\//, '')}</span>
-                          <span className={statusColor}>{hop.status} {isSuccess && '✓'}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                ) : !compareMode ? (
+                  (report?.redirect_chain?.hops || []).length > 0 ? (
+                    <div className="space-y-1 mt-2 rp-mono text-xs">
+                      {(report.redirect_chain.hops || []).map((hop: any, idx: number) => {
+                        const isSuccess = hop.status === 200;
+                        const isRedirect = hop.status >= 300 && hop.status < 400;
+                        const statusColor = isSuccess ? 'text-green-400' : isRedirect ? 'text-orange-400' : 'text-red-400';
+                        return (
+                          <div key={idx} className="flex justify-between items-center border-b border-white/5 pb-1">
+                            <span className="truncate max-w-[70%]">{hop.url.replace(/^https?:\/\//, '')}</span>
+                            <span className={statusColor}>{hop.status} {isSuccess && '✓'}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No redirect history</div>
+                  )
                 ) : (
-                  <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No redirect history</div>
+                  <div className="grid grid-cols-2 gap-4 text-[10px] rp-mono mt-auto">
+                    <div>
+                      <div className="text-slate-400 mb-1">A Redirects</div>
+                      <div className="text-slate-300">{(report?.redirect_chain?.hops || []).length} hops</div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1">B Redirects</div>
+                      <div className="text-slate-300">{(reportB?.redirect_chain?.hops || []).length} hops</div>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -739,7 +1061,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 <SectionLabel>Email Security</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs">Scanning DNS...</div>
-                ) : (
+                ) : !compareMode ? (
                   <div className="space-y-2 mt-2 rp-mono text-sm">
                     <div className="flex justify-between">
                       <span>SPF</span>
@@ -760,6 +1082,19 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                       </span>
                     </div>
                   </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 text-xs rp-mono mt-auto">
+                    <div>
+                      <div className="text-slate-400 mb-1">A Security</div>
+                      <div>SPF: {report?.email_security?.spf ? "✓ Pass" : "✗ Fail"}</div>
+                      <div>DMARC: {report?.email_security?.dmarc ? "✓ Pass" : "✗ Fail"}</div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1">B Security</div>
+                      <div>SPF: {reportB?.email_security?.spf ? "✓ Pass" : "✗ Fail"}</div>
+                      <div>DMARC: {reportB?.email_security?.dmarc ? "✓ Pass" : "✗ Fail"}</div>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -768,7 +1103,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 <SectionLabel>Social Presence</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs">Looking up brand profiles...</div>
-                ) : (
+                ) : !compareMode ? (
                   <div className="grid grid-cols-2 gap-2 mt-2 text-xs rp-mono">
                     {[
                       { icon: "🐦", name: "Twitter", val: report?.social?.twitter },
@@ -785,6 +1120,17 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                       </div>
                     ))}
                   </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 text-[10px] rp-mono mt-auto">
+                    <div>
+                      <div className="text-slate-400 mb-1">A Socials</div>
+                      <div>Present: {[report?.social?.twitter, report?.social?.linkedin, report?.social?.github].filter(Boolean).length}/3</div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1">B Socials</div>
+                      <div>Present: {[reportB?.social?.twitter, reportB?.social?.linkedin, reportB?.social?.github].filter(Boolean).length}/3</div>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -793,16 +1139,29 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 <SectionLabel>Trackers & Cookies</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs">Scanning headers...</div>
-                ) : (report?.tech_stack?.trackers || []).length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5 mt-auto max-h-[100px] overflow-y-auto">
-                    {(report.tech_stack.trackers || []).map((t: string) => (
-                      <span key={t} className="bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[10px] rp-mono text-slate-300">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
+                ) : !compareMode ? (
+                  (report?.tech_stack?.trackers || []).length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 mt-auto max-h-[100px] overflow-y-auto">
+                      {(report.tech_stack.trackers || []).map((t: string) => (
+                        <span key={t} className="bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[10px] rp-mono text-slate-300">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-slate-500 rp-mono text-xs mt-auto">No trackers detected.</div>
+                  )
                 ) : (
-                  <div className="text-slate-500 rp-mono text-xs mt-auto">No trackers detected.</div>
+                  <div className="grid grid-cols-2 gap-4 text-[10px] rp-mono mt-auto">
+                    <div>
+                      <div className="text-slate-400 mb-1">A Trackers</div>
+                      <div className="text-slate-300">{(report?.tech_stack?.trackers || []).length} found</div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1">B Trackers</div>
+                      <div className="text-slate-300">{(reportB?.tech_stack?.trackers || []).length} found</div>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -811,7 +1170,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 <SectionLabel>Website Age</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs">Checking archive...</div>
-                ) : (
+                ) : !compareMode ? (
                   <div>
                     <div className="text-sm rp-mono text-slate-300">
                       First seen: <span className="font-semibold text-white">{report?.wayback?.first_seen || 'N/A'}</span>
@@ -836,6 +1195,17 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                       </div>
                     )}
                   </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 text-xs rp-mono mt-auto">
+                    <div>
+                      <div className="text-slate-400 mb-1">A Age</div>
+                      <div className="text-white font-semibold">{report?.wayback?.first_seen || 'N/A'}</div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1">B Age</div>
+                      <div className="text-white font-semibold">{reportB?.wayback?.first_seen || 'N/A'}</div>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -844,18 +1214,32 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 <SectionLabel>Google Fonts</SectionLabel>
                 {isLoading ? (
                   <div className="text-slate-500 rp-mono text-xs">Analyzing styles...</div>
-                ) : (report?.tech_stack?.fonts || []).length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5 mt-auto max-h-[100px] overflow-y-auto">
-                    {(report.tech_stack.fonts || []).map((f: string) => (
-                      <span key={f} className="bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[10px] rp-mono text-slate-300">
-                        {f}
-                      </span>
-                    ))}
-                  </div>
+                ) : !compareMode ? (
+                  (report?.tech_stack?.fonts || []).length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 mt-auto max-h-[100px] overflow-y-auto">
+                      {(report.tech_stack.fonts || []).map((f: string) => (
+                        <span key={f} className="bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[10px] rp-mono text-slate-300">
+                          {f}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-slate-500 rp-mono text-xs mt-auto">No custom web fonts detected.</div>
+                  )
                 ) : (
-                  <div className="text-slate-500 rp-mono text-xs mt-auto">No custom web fonts detected.</div>
+                  <div className="grid grid-cols-2 gap-4 text-[10px] rp-mono mt-auto">
+                    <div>
+                      <div className="text-slate-400 mb-1">A Fonts</div>
+                      <div className="text-slate-300">{(report?.tech_stack?.fonts || []).length} found</div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1">B Fonts</div>
+                      <div className="text-slate-300">{(reportB?.tech_stack?.fonts || []).length} found</div>
+                    </div>
+                  </div>
                 )}
               </div>
+
 
             </div>
           )}

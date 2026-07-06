@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from app.models import ReportRequest, ReportData
 from app.orchestrator import run_report
-from app.database import get_report, save_report
+from app.database import get_report, save_report, get_history
 from app.cache import get_cached
 
 router = APIRouter()
@@ -61,6 +61,13 @@ async def prefetch_domain(
     background_tasks.add_task(ip_service.fetch_hosting_info, domain)
 
     return {"status": "prefetching"}
+
+@router.get("/report/history")
+async def get_report_history(url: str):
+    target_url = url.strip()
+    if not target_url.startswith(("http://", "https://")):
+        target_url = "https://" + target_url
+    return await get_history(target_url)
 
 @router.get("/report/{report_id}")
 async def get_report_by_id(report_id: str) -> ReportData:

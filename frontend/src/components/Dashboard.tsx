@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import axios from 'axios';
 import { useReportStream } from '../hooks/useReportStream';
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 const AVATAR_URL =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuAyu8MpVA8eQoO2NaGUTP0oUdhDvx9ZR3Tkmgv4MHUW9rOsq72J13d3DjW0_cAu7njxxO-4uFiMQ5i73UOkMm_iEEUWwEXGNo_V7YjqwoW2TBq3Tqtg-33boBRUeWyhnptsvTaAN7lmq16W2t5uf08KCEVdVcpYVDnVL8Cj6ZSprDV-dXhG-KuvjLQxKw45zbRAjCPZIFSyXoWfjJRwElWv6TBqDUTnJkrKjNTyl1veFGZ2N8tlSNhkVw";
@@ -33,6 +35,8 @@ export function Dashboard() {
   const { report, status } = useReportStream(activeReportId);
   const { report: reportB, status: statusB } = useReportStream(activeReportIdB);
   const [historyList, setHistoryList] = useState<any[]>([]);
+  const [scanHistory, setScanHistory] = useState<any[]>([]);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   // Dark/Light Mode Toggle state
   const [theme, setTheme] = useState(() => localStorage.getItem('rp_theme') || 'dark');
@@ -127,6 +131,20 @@ export function Dashboard() {
       }
     }
   }, [status, report, activeReportId]);
+
+  // Load scan history from database
+  useEffect(() => {
+    if (report?.url) {
+      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      axios.get(`${apiBaseUrl}/api/report/history`, { params: { url: report.url } })
+        .then((res) => {
+          setScanHistory(res.data || []);
+        })
+        .catch((err) => console.log("Error loading scan history:", err));
+    } else {
+      setScanHistory([]);
+    }
+  }, [report?.url, status]);
 
   const handleHistoryClick = async (url: string) => {
     setUrlInput(url);
@@ -319,6 +337,43 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
     navigator.clipboard.writeText(md.trim());
     setExported(true);
     setTimeout(() => setExported(false), 2000);
+  };
+
+  const handleExportPDF = async () => {
+    const element = document.getElementById('bento-grid-container');
+    if (!element || !report) return;
+    setGeneratingPDF(true);
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: isDark ? '#020205' : '#f4f5f8',
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210; // A4 width
+      const pageHeight = 295; // A4 height
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      const domainName = report.url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+      pdf.save(`recon-pulse-report-${domainName}.pdf`);
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      alert("Failed to export PDF report.");
+    } finally {
+      setGeneratingPDF(false);
+    }
   };
 
 
@@ -647,6 +702,14 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 >
                   {copied ? '✓ Copied' : 'Share Report'}
                 </button>
+                <button
+                  onClick={handleExportPDF}
+                  disabled={generatingPDF}
+                  className="border border-white/10 px-4 py-2 rounded-lg rp-title transition-all hover:bg-white/10 cursor-pointer disabled:opacity-50"
+                  style={{ backgroundColor: "rgba(255,255,255,0.05)", color: PRIMARY }}
+                >
+                  {generatingPDF ? 'Generating...' : 'Export PDF'}
+                </button>
               </div>
             )}
 
@@ -726,6 +789,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
           {/* Bento grid */}
           {activeReportId && (
             <div
+              id="bento-grid-container"
               className="grid grid-cols-1 md:grid-cols-12 gap-4 relative z-10"
               onClick={(e) => {
                 const el = (e.target as HTMLElement).closest("[data-card]") as HTMLElement | null;
@@ -786,43 +850,90 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 {isLoading ? (
                   <SkeletonLoader lines={5} />
                 ) : !compareMode ? (
-                  <div className="flex flex-col sm:flex-row items-center gap-6 mt-auto mb-auto">
-                    {/* Left: Progress Circle */}
-                    <div className="relative w-28 h-28 flex items-center justify-center shrink-0">
-                      <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
-                        <circle 
-                          cx="50" 
-                          cy="50" 
-                          r={radius} 
-                          fill="none" 
-                          stroke={strokeColor} 
-                          strokeWidth="8"
-                          strokeDasharray={circumference} 
-                          strokeDashoffset={strokeDashoffset}
-                          strokeLinecap="round"
-                          style={{ 
-                            transition: "stroke-dashoffset 1s ease-out",
-                            filter: `drop-shadow(0 0 8px ${strokeColor}77)`
-                          }} 
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-2xl font-bold rp-mono text-white">{scoreVal}</span>
-                        <span className="text-[8px] uppercase text-slate-400 font-semibold mt-0.5">Score</span>
+                  <div className="flex-1 flex flex-col justify-between mt-4">
+                    <div className="flex flex-col sm:flex-row items-center gap-6">
+                      {/* Left: Progress Circle */}
+                      <div className="relative w-28 h-28 flex items-center justify-center shrink-0">
+                        <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                          <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
+                          <circle 
+                            cx="50" 
+                            cy="50" 
+                            r={radius} 
+                            fill="none" 
+                            stroke={strokeColor} 
+                            strokeWidth="8"
+                            strokeDasharray={circumference} 
+                            strokeDashoffset={strokeDashoffset}
+                            strokeLinecap="round"
+                            style={{ 
+                              transition: "stroke-dashoffset 1s ease-out",
+                              filter: `drop-shadow(0 0 8px ${strokeColor}77)`
+                            }} 
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-2xl font-bold rp-mono text-white">{scoreVal}</span>
+                          <span className="text-[8px] uppercase text-slate-400 font-semibold mt-0.5">Score</span>
+                        </div>
+                      </div>
+                      {/* Right: Narrative */}
+                      <div className="flex-1 text-left">
+                        <h4 className="text-base font-bold text-white mb-2">
+                          Status: <span style={{ color: strokeColor }}>{report?.threat_level || 'Low'} Threat</span>
+                        </h4>
+                        <p className="text-xs text-slate-300 leading-relaxed rp-mono">
+                          {scoreVal >= 85 
+                            ? "This domain has a healthy security posture. No critical gaps were identified during active scanning."
+                            : `Gaps detected in: ${gaps.length > 0 ? gaps.join(", ") : "None"}. Remediation recommended to resolve vulnerabilities.`}
+                        </p>
                       </div>
                     </div>
-                    {/* Right: Narrative */}
-                    <div className="flex-1 text-left">
-                      <h4 className="text-base font-bold text-white mb-2">
-                        Status: <span style={{ color: strokeColor }}>{report?.threat_level || 'Low'} Threat</span>
-                      </h4>
-                      <p className="text-xs text-slate-300 leading-relaxed rp-mono">
-                        {scoreVal >= 85 
-                          ? "This domain has a healthy security posture. No critical gaps were identified during active scanning."
-                          : `Gaps detected in: ${gaps.length > 0 ? gaps.join(", ") : "None"}. Remediation recommended to resolve vulnerabilities.`}
-                      </p>
-                    </div>
+
+                    {/* Score Sparkline History */}
+                    {(() => {
+                      const sortedHistory = [...scanHistory].reverse();
+                      if (sortedHistory.length >= 2) {
+                        const pointsList = sortedHistory.map((pt, i) => `${(i / (sortedHistory.length - 1)) * 160},${40 - ((pt.summary_score || 0) / 100) * 35}`);
+                        const pathDString = `M ${pointsList.join(' L ')}`;
+                        return (
+                          <div className="mt-6 border-t border-white/5 pt-4">
+                            <div className="text-[10px] text-slate-400 rp-mono mb-2 flex justify-between">
+                              <span>Security Posture Trend (Last {sortedHistory.length} scans)</span>
+                              <span>Initial: {sortedHistory[0].summary_score} → Latest: {sortedHistory[sortedHistory.length - 1].summary_score}</span>
+                            </div>
+                            <div className="h-14 w-full">
+                              <svg className="w-full h-full overflow-visible" viewBox="0 0 160 45" preserveAspectRatio="none">
+                                <defs>
+                                  <linearGradient id="sparklineGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor={strokeColor} stopOpacity="0.25" />
+                                    <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
+                                  </linearGradient>
+                                </defs>
+                                <path 
+                                  d={`M 0,45 L ${pointsList.join(' L ')} L 160,45 Z`} 
+                                  fill="url(#sparklineGrad)" 
+                                />
+                                <path 
+                                  d={pathDString} 
+                                  fill="none" 
+                                  stroke={strokeColor} 
+                                  strokeWidth="2.5" 
+                                  strokeLinecap="round" 
+                                  strokeLinejoin="round"
+                                  style={{ filter: `drop-shadow(0 0 4px ${strokeColor}aa)` }}
+                                />
+                              </svg>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="mt-6 border-t border-white/5 pt-4 text-[10px] text-slate-500 rp-mono text-center">
+                          Scan history trend line will build dynamically on future reports.
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-4 h-full items-center mt-auto">

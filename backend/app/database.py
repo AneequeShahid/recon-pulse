@@ -56,6 +56,18 @@ def _report_to_row(report: ReportData) -> dict:
         "carbon": report.carbon.model_dump(mode="json") if report.carbon else None,
         "traffic": report.traffic.model_dump(mode="json") if report.traffic else None,
         "dns_records": report.dns_records,
+        "redirect_chain": report.redirect_chain.model_dump(mode="json") if report.redirect_chain else None,
+        "email_security": report.email_security.model_dump(mode="json") if report.email_security else None,
+        "social": report.social.model_dump(mode="json") if report.social else None,
+        "wayback": report.wayback.model_dump(mode="json") if report.wayback else None,
+        "http_version": report.http_version.model_dump(mode="json") if report.http_version else None,
+        "robots": report.robots.model_dump(mode="json") if report.robots else None,
+        "bgp": report.bgp.model_dump(mode="json") if report.bgp else None,
+        "subdomains": report.subdomains.model_dump(mode="json") if report.subdomains else None,
+        "reputation": report.reputation.model_dump(mode="json") if report.reputation else None,
+        "observatory": report.observatory.model_dump(mode="json") if report.observatory else None,
+        "summary_score": report.summary_score,
+        "threat_level": report.threat_level,
         "created_at": report.created_at.isoformat(),
         "status": report.status,
     }
@@ -162,3 +174,44 @@ async def update_report(report: ReportData) -> None:
 async def get_cached(url: str) -> Optional[str]:
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _get_cached_sync, url)
+
+def _get_history_sync(url: str) -> list:
+    if supabase:
+        try:
+            response = supabase.table("reports") \
+                .select("summary_score, created_at") \
+                .eq("url", url) \
+                .eq("status", "complete") \
+                .order("created_at", desc=True) \
+                .limit(15) \
+                .execute()
+            return response.data or []
+        except Exception as e:
+            print(f"Supabase history query error: {e}")
+            return []
+    else:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT data, created_at FROM reports WHERE url = ? AND status = 'complete' ORDER BY created_at DESC LIMIT 15",
+            (url,)
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        
+        history = []
+        for row in rows:
+            try:
+                import json
+                data = json.loads(row[0])
+                history.append({
+                    "summary_score": data.get("summary_score"),
+                    "created_at": row[1]
+                })
+            except Exception:
+                pass
+        return history
+
+async def get_history(url: str) -> list:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, _get_history_sync, url)

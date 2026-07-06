@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.routers import report, health
+from app.middleware.rate_limit import RateLimitMiddleware
 
 app = FastAPI(
     title="Recon Pulse API",
@@ -21,6 +22,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Enable Rate Limiting (max 15 requests per 60s per IP for trigger endpoint)
+app.add_middleware(RateLimitMiddleware, limit=15, window=60)
 
 # Include endpoint routes
 app.include_router(report.router, prefix="/api")

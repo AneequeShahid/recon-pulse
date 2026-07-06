@@ -30,6 +30,7 @@ class HostingInfo(BaseModel):
     city: Optional[str] = None
     isp: Optional[str] = None
     asn: Optional[str] = None
+    provider_name: Optional[str] = None
 
 class DomainInfo(BaseModel):
     registrar: Optional[str] = None
@@ -92,6 +93,15 @@ class WaybackInfo(BaseModel):
     latest_snapshot: Optional[str] = None
     available: bool = False
 
+class HTTPVersionInfo(BaseModel):
+    http2: bool = False
+    http3: bool = False
+
+class RobotsInfo(BaseModel):
+    robots_txt: Optional[str] = None
+    sitemap_url: Optional[str] = None
+    has_sitemap: bool = False
+
 class ReportData(BaseModel):
     id: str
     url: str
@@ -114,6 +124,8 @@ class ReportData(BaseModel):
     email_security: Optional[EmailSecurity] = None
     social: Optional[SocialPresence] = None
     wayback: Optional[WaybackInfo] = None
+    http_version: Optional[HTTPVersionInfo] = None
+    robots: Optional[RobotsInfo] = None
     created_at: datetime
     status: str  # "pending" | "partial" | "complete" | "error"
 

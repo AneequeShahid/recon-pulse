@@ -7,10 +7,14 @@ from app.services import (
     ssl_service, pagespeed_service, gnews_service,
     github_service, carbon_service, tranco_service,
     puppeteer_service, wappalyzer_service, redirect_service,
-    email_security_service, social_service, wayback_service
+    email_security_service, social_service, wayback_service,
+    http_version_service, robots_service
 )
 from app.models import ReportData
 from app.database import save_report, update_report
+
+async def wrap_with_timeout(coro, timeout_sec):
+    return await asyncio.wait_for(coro, timeout=timeout_sec)
 
 async def run_report(report_id: str, url: str) -> None:
     parsed = urlparse(url)
@@ -25,23 +29,25 @@ async def run_report(report_id: str, url: str) -> None:
         created_at=datetime.now(),
         status="pending"
     )
-    print("[ORCHESTRATOR] calling puppeteer service")
+    print("[ORCHESTRATOR] running all services in parallel")
     results = await asyncio.gather(
-        puppeteer_service.fetch_screenshot_and_meta(url),
-        wappalyzer_service.fetch_tech_stack(url),
-        rdap_service.fetch_domain_info(domain),
-        ip_service.fetch_hosting_info(domain),
-        dns_service.fetch_dns_records(domain),
-        ssl_service.fetch_ssl_grade(domain),
-        pagespeed_service.fetch_performance(url),
-        gnews_service.fetch_news(domain),
-        github_service.fetch_github_info(domain),
-        carbon_service.fetch_carbon(url),
-        tranco_service.fetch_rank(domain),
-        redirect_service.fetch_redirect_chain(url),
-        email_security_service.fetch_email_security(domain),
-        social_service.fetch_social_presence(domain),
-        wayback_service.fetch_wayback_info(domain),
+        wrap_with_timeout(puppeteer_service.fetch_screenshot_and_meta(url), 7),
+        wrap_with_timeout(wappalyzer_service.fetch_tech_stack(url), 7),
+        wrap_with_timeout(rdap_service.fetch_domain_info(domain), 7),
+        wrap_with_timeout(ip_service.fetch_hosting_info(domain), 5),
+        wrap_with_timeout(dns_service.fetch_dns_records(domain), 5),
+        wrap_with_timeout(ssl_service.fetch_ssl_grade(domain), 15),
+        wrap_with_timeout(pagespeed_service.fetch_performance(url), 7),
+        wrap_with_timeout(gnews_service.fetch_news(domain), 7),
+        wrap_with_timeout(github_service.fetch_github_info(domain), 7),
+        wrap_with_timeout(carbon_service.fetch_carbon(url), 7),
+        wrap_with_timeout(tranco_service.fetch_rank(domain), 7),
+        wrap_with_timeout(redirect_service.fetch_redirect_chain(url), 7),
+        wrap_with_timeout(email_security_service.fetch_email_security(domain), 7),
+        wrap_with_timeout(social_service.fetch_social_presence(domain), 7),
+        wrap_with_timeout(wayback_service.fetch_wayback_info(domain), 15),
+        wrap_with_timeout(http_version_service.check_http_version(domain), 7),
+        wrap_with_timeout(robots_service.fetch_robots_and_sitemap(domain), 7),
         return_exceptions=True
     )
 
@@ -49,7 +55,7 @@ async def run_report(report_id: str, url: str) -> None:
     (screenshot_data, tech, domain_info, hosting,
      dns, security, performance, news,
      github, carbon, traffic, redirect_chain,
-     email_security, social, wayback) = [
+     email_security, social, wayback, http_version, robots) = [
         None if isinstance(r, Exception) else r
         for r in results
     ]
@@ -75,10 +81,13 @@ async def run_report(report_id: str, url: str) -> None:
     report.email_security = email_security
     report.social = social
     report.wayback = wayback
+    report.http_version = http_version
+    report.robots = robots
     report.status = "complete"
 
     # Update database record
     await update_report(report)
+
 
 
 

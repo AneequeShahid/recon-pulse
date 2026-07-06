@@ -1,5 +1,5 @@
 import pytest
-from app.services import rdap_service, ip_service, dns_service, ssl_service, wappalyzer_service
+from app.services import rdap_service, ip_service, dns_service, ssl_service, wappalyzer_service, http_version_service, robots_service
 
 @pytest.mark.asyncio
 async def test_rdap_service():
@@ -36,3 +36,17 @@ async def test_wappalyzer_service():
     assert info is not None
     assert hasattr(info, "technologies")
     assert hasattr(info, "categories")
+
+@pytest.mark.asyncio
+async def test_http_version_service():
+    info = await http_version_service.check_http_version("google.com")
+    assert info is not None
+    assert hasattr(info, "http2")
+    assert hasattr(info, "http3")
+
+@pytest.mark.asyncio
+async def test_robots_service():
+    info = await robots_service.fetch_robots_and_sitemap("google.com")
+    assert info is not None
+    assert hasattr(info, "robots_txt")
+    assert hasattr(info, "sitemap_url")

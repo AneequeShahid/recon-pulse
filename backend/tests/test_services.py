@@ -1,5 +1,9 @@
 import pytest
-from app.services import rdap_service, ip_service, dns_service, ssl_service, wappalyzer_service, http_version_service, robots_service
+from app.services import (
+    rdap_service, ip_service, dns_service, ssl_service,
+    wappalyzer_service, http_version_service, robots_service,
+    bgp_service, subdomain_service, reputation_service, observatory_service
+)
 
 @pytest.mark.asyncio
 async def test_rdap_service():
@@ -50,3 +54,31 @@ async def test_robots_service():
     assert info is not None
     assert hasattr(info, "robots_txt")
     assert hasattr(info, "sitemap_url")
+
+@pytest.mark.asyncio
+async def test_bgp_service():
+    info = await bgp_service.fetch_bgp_info("AS13335")
+    assert info is not None
+    assert hasattr(info, "asn")
+    assert hasattr(info, "prefixes_ipv4")
+
+@pytest.mark.asyncio
+async def test_subdomain_service():
+    info = await subdomain_service.fetch_subdomains("google.com")
+    assert info is not None
+    assert hasattr(info, "subdomains")
+    assert hasattr(info, "total_count")
+
+@pytest.mark.asyncio
+async def test_reputation_service():
+    info = await reputation_service.fetch_domain_reputation("google.com")
+    assert info is not None
+    assert hasattr(info, "malicious_count")
+    assert hasattr(info, "status")
+
+@pytest.mark.asyncio
+async def test_observatory_service():
+    info = await observatory_service.fetch_observatory_grade("google.com")
+    assert info is not None
+    assert hasattr(info, "grade")
+    assert hasattr(info, "score")

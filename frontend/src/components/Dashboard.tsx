@@ -1512,6 +1512,148 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 )}
               </div>
 
+              {/* BGP Routing */}
+              <div data-card="bgp" onClick={() => setActiveCard('bgp')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                <SectionLabel>BGP Routing Details</SectionLabel>
+                {isLoading ? (
+                  <SkeletonLoader lines={3} />
+                ) : !compareMode ? (
+                  <div className="space-y-1 mt-2 text-xs rp-mono">
+                    <div className="flex justify-between border-b border-white/5 pb-1">
+                      <span>IPv4 Prefixes</span>
+                      <span className="text-white font-semibold">{report?.bgp?.prefixes_ipv4 ?? 0}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-white/5 pb-1">
+                      <span>IPv6 Prefixes</span>
+                      <span className="text-white font-semibold">{report?.bgp?.prefixes_ipv6 ?? 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Peers Count</span>
+                      <span className="text-white font-semibold">{report?.bgp?.peers_count ?? 0}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 text-[10px] rp-mono mt-auto">
+                    <div>
+                      <div className="text-slate-400 mb-1">A BGP Peers</div>
+                      <div className="text-white">{report?.bgp?.peers_count ?? 0} peers</div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1">B BGP Peers</div>
+                      <div className="text-white">{reportB?.bgp?.peers_count ?? 0} peers</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Subdomain Inventory */}
+              <div data-card="subdomains" onClick={() => setActiveCard('subdomains')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                <SectionLabel>Subdomain Inventory</SectionLabel>
+                {isLoading ? (
+                  <SkeletonLoader lines={3} />
+                ) : !compareMode ? (
+                  (report?.subdomains?.subdomains || []).length > 0 ? (
+                    <div>
+                      <div className="flex flex-wrap gap-1.5 mt-auto max-h-[80px] overflow-y-auto">
+                        {(report.subdomains.subdomains || []).slice(0, 4).map((sub: string) => (
+                          <span key={sub} className="bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[10px] rp-mono text-slate-300 truncate max-w-full">
+                            {sub.split('.')[0]}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-2 rp-mono text-right">
+                        {report?.subdomains?.total_count} total detected
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-slate-500 rp-mono text-xs mt-auto">No subdomains detected</div>
+                  )
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 text-[10px] rp-mono mt-auto">
+                    <div>
+                      <div className="text-slate-400 mb-1">A Subdomains</div>
+                      <div className="text-white">{report?.subdomains?.total_count ?? 0} found</div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1">B Subdomains</div>
+                      <div className="text-white">{reportB?.subdomains?.total_count ?? 0} found</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Reputation Engine */}
+              <div data-card="reputation" onClick={() => setActiveCard('reputation')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                <SectionLabel>Reputation Engine</SectionLabel>
+                {isLoading ? (
+                  <SkeletonLoader lines={3} />
+                ) : !compareMode ? (
+                  <div className="mt-2 flex flex-col justify-between h-full">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                        report?.reputation?.status === "Malicious" ? "bg-red-500/20 text-red-400 border border-red-500/30" :
+                        report?.reputation?.status === "Suspicious" ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" :
+                        "bg-green-500/20 text-green-400 border border-green-500/30"
+                      }`}>
+                        {report?.reputation?.status || "Clean"}
+                      </span>
+                      <span className="text-[10px] text-slate-400 rp-mono">
+                        {report?.reputation?.malicious_count}/{report?.reputation?.total_scanners || 70} detections
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-slate-500 rp-mono mt-2 block">
+                      * Configure VIRUSTOTAL_API_KEY for sandbox audits
+                    </span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 text-[10px] rp-mono mt-auto">
+                    <div>
+                      <div className="text-slate-400 mb-1">A Reputation</div>
+                      <div className="text-white font-semibold">{report?.reputation?.status || "Clean"}</div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1">B Reputation</div>
+                      <div className="text-white font-semibold">{reportB?.reputation?.status || "Clean"}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Mozilla Observatory */}
+              <div data-card="observatory" onClick={() => setActiveCard('observatory')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col justify-between min-h-[180px]">
+                <SectionLabel>Mozilla Observatory</SectionLabel>
+                {isLoading ? (
+                  <SkeletonLoader lines={3} />
+                ) : !compareMode ? (
+                  <div className="flex items-center justify-between mt-2">
+                    <div>
+                      <div className="text-sm font-semibold rp-mono text-slate-300">
+                        Score: <span className="text-white">{report?.observatory?.score ?? 'N/A'}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1 rp-mono">
+                        Passed: {report?.observatory?.tests_passed ?? 0} | Failed: {report?.observatory?.tests_failed ?? 0}
+                      </div>
+                    </div>
+                    {report?.observatory?.grade && (
+                      <div className="text-3xl font-extrabold text-green-400 border border-green-500/20 px-3 py-1 rounded bg-green-500/10">
+                        {report.observatory.grade}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 text-[10px] rp-mono mt-auto">
+                    <div>
+                      <div className="text-slate-400 mb-1">A Grade</div>
+                      <div className="text-white font-semibold">{report?.observatory?.grade || 'N/A'}</div>
+                    </div>
+                    <div className="border-l border-white/10 pl-4">
+                      <div className="text-slate-400 mb-1">B Grade</div>
+                      <div className="text-white font-semibold">{reportB?.observatory?.grade || 'N/A'}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
 
             </div>
           )}
@@ -1829,6 +1971,61 @@ const getCardDetails = (report: any, extractedColors: any): Record<string, Detai
         ]},
         { label: "Robots.txt Content", rows: [
           { k: "Raw content", v: report?.robots?.robots_txt || "None" }
+        ]}
+      ]
+    },
+    bgp: {
+      title: "BGP Routing Details",
+      subtitle: "Autonomous System routing network details",
+      icon: "router",
+      sections: [
+        { label: "IP Prefixes", rows: [
+          { k: "IPv4 Prefixes Count", v: String(report?.bgp?.prefixes_ipv4 ?? 0) },
+          { k: "IPv6 Prefixes Count", v: String(report?.bgp?.prefixes_ipv6 ?? 0) }
+        ]},
+        { label: "Peering Information", rows: [
+          { k: "Upstreams Count", v: String(report?.bgp?.upstreams_count ?? 0) },
+          { k: "Downstreams Count", v: String(report?.bgp?.downstreams_count ?? 0) },
+          { k: "Peers Count", v: String(report?.bgp?.peers_count ?? 0) }
+        ]}
+      ]
+    },
+    subdomains: {
+      title: "Subdomain Inventory",
+      subtitle: "Public hosts discovered via certificate transparency logs",
+      icon: "dns",
+      sections: [
+        { label: "Detected Subdomains", rows: (report?.subdomains?.subdomains || []).map((sub: string) => ({
+          k: sub,
+          v: "Active"
+        }))}
+      ]
+    },
+    reputation: {
+      title: "Reputation Engine Threat Scan",
+      subtitle: "Antivirus and reputation engine blacklisting checks",
+      icon: "shield",
+      sections: [
+        { label: "Detections Summary", rows: [
+          { k: "Malicious Detections", v: String(report?.reputation?.malicious_count ?? 0) },
+          { k: "Suspicious Detections", v: String(report?.reputation?.suspicious_count ?? 0) },
+          { k: "Total Engines Scanned", v: String(report?.reputation?.total_scanners ?? 70) },
+          { k: "Assessment Result", v: report?.reputation?.status || "Clean" }
+        ]}
+      ]
+    },
+    observatory: {
+      title: "Mozilla Observatory Header Compliance",
+      subtitle: "Security headers configuration quality grading",
+      icon: "verified_user",
+      sections: [
+        { label: "Summary Grade", rows: [
+          { k: "Assigned Grade", v: report?.observatory?.grade || "Pending" },
+          { k: "Header Security Score", v: report?.observatory?.score !== null && report?.observatory?.score !== undefined ? `${report.observatory.score}/100` : "N/A" }
+        ]},
+        { label: "Deductions & Compliance", rows: [
+          { k: "Compliant Headers Passed", v: String(report?.observatory?.tests_passed ?? 0) },
+          { k: "Non-Compliant Headers Failed", v: String(report?.observatory?.tests_failed ?? 0) }
         ]}
       ]
     }

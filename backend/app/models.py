@@ -102,6 +102,30 @@ class RobotsInfo(BaseModel):
     sitemap_url: Optional[str] = None
     has_sitemap: bool = False
 
+class BGPInfo(BaseModel):
+    asn: Optional[str] = None
+    prefixes_ipv4: int = 0
+    prefixes_ipv6: int = 0
+    upstreams_count: int = 0
+    downstreams_count: int = 0
+    peers_count: int = 0
+
+class SubdomainInfo(BaseModel):
+    subdomains: List[str] = []
+    total_count: int = 0
+
+class ReputationInfo(BaseModel):
+    malicious_count: int = 0
+    suspicious_count: int = 0
+    total_scanners: int = 0
+    status: str = "Clean"  # "Clean" | "Suspicious" | "Malicious" | "Unknown"
+
+class ObservatoryInfo(BaseModel):
+    grade: Optional[str] = None
+    score: Optional[int] = None
+    tests_passed: int = 0
+    tests_failed: int = 0
+
 class ReportData(BaseModel):
     id: str
     url: str
@@ -126,8 +150,13 @@ class ReportData(BaseModel):
     wayback: Optional[WaybackInfo] = None
     http_version: Optional[HTTPVersionInfo] = None
     robots: Optional[RobotsInfo] = None
+    bgp: Optional[BGPInfo] = None
+    subdomains: Optional[SubdomainInfo] = None
+    reputation: Optional[ReputationInfo] = None
+    observatory: Optional[ObservatoryInfo] = None
     created_at: datetime
     status: str  # "pending" | "partial" | "complete" | "error"
+
 
 
 

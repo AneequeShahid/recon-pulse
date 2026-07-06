@@ -13,6 +13,7 @@ from app.services import (
 )
 from app.models import ReportData
 from app.database import save_report, update_report
+from app.analysis.scoring import calculate_pulse_score
 
 async def wrap_with_timeout(coro, timeout_sec):
     return await asyncio.wait_for(coro, timeout=timeout_sec)
@@ -102,6 +103,12 @@ async def run_report(report_id: str, url: str) -> None:
     report.subdomains = subdomains
     report.reputation = reputation
     report.observatory = observatory
+    
+    # Calculate Pulse Score
+    score, level = calculate_pulse_score(report)
+    report.summary_score = score
+    report.threat_level = level
+    
     report.status = "complete"
 
     # Update database record

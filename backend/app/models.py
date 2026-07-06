@@ -154,6 +154,8 @@ class ReportData(BaseModel):
     subdomains: Optional[SubdomainInfo] = None
     reputation: Optional[ReputationInfo] = None
     observatory: Optional[ObservatoryInfo] = None
+    summary_score: Optional[int] = None
+    threat_level: Optional[str] = None
     created_at: datetime
     status: str  # "pending" | "partial" | "complete" | "error"
 

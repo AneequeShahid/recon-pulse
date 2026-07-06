@@ -405,6 +405,25 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
     };
   }, []);
 
+  // Pulse Score Details
+  const strokeColor = 
+    report?.threat_level === "Critical" ? "#ef4444" : 
+    report?.threat_level === "High" ? "#f97316" :    
+    report?.threat_level === "Medium" ? "#f59e0b" :  
+    "#10b981";                                       
+
+  const scoreVal = report?.summary_score ?? 0;
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (scoreVal / 100) * circumference;
+
+  const gaps: string[] = [];
+  if (report?.reputation?.malicious_count > 0) gaps.push("Reputation blacklist");
+  if (report?.security?.ssl_grade && ["C","D","F"].some(x => report.security.ssl_grade.includes(x))) gaps.push("SSL configs");
+  if (report?.observatory?.grade && ["C","D","F"].some(x => report.observatory.grade.includes(x))) gaps.push("Security Headers");
+  if (report?.performance?.performance_score !== null && report?.performance?.performance_score !== undefined && report?.performance?.performance_score < 70) gaps.push("Web performance");
+  if (report?.email_security && (!report.email_security.spf || !report.email_security.dmarc)) gaps.push("Email SPF/DMARC");
+
   return (
     <div
       className={`min-h-screen flex antialiased transition-colors duration-300 ${isDark ? 'text-[#e1e2ec] bg-[#020205]' : 'text-slate-800 bg-[#f4f5f8] light-mode'}`}
@@ -720,7 +739,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
             >
 
               {/* Screenshot */}
-              <div data-card="screenshot" role="button" tabIndex={0} className={`rp-bento col-span-1 md:col-span-8 rounded-xl p-6 min-h-[400px] flex flex-col ${isLoading ? 'rp-shimmer' : ''}`}>
+              <div data-card="screenshot" role="button" tabIndex={0} className={`rp-bento col-span-1 md:col-span-6 rounded-xl p-6 min-h-[400px] flex flex-col ${isLoading ? 'rp-shimmer' : ''}`}>
                 <SectionLabel>Screenshot Preview</SectionLabel>
                 <div className="flex-1 bg-black/40 rounded-lg border border-white/5 overflow-hidden relative">
                   {!compareMode ? (
@@ -761,6 +780,72 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
                 </div>
               </div>
 
+              {/* Pulse Score Hero */}
+              <div data-card="pulse_score" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-6 rounded-xl p-6 flex flex-col justify-between min-h-[400px]">
+                <SectionLabel>Pulse Score Rating</SectionLabel>
+                {isLoading ? (
+                  <SkeletonLoader lines={5} />
+                ) : !compareMode ? (
+                  <div className="flex flex-col sm:flex-row items-center gap-6 mt-auto mb-auto">
+                    {/* Left: Progress Circle */}
+                    <div className="relative w-28 h-28 flex items-center justify-center shrink-0">
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
+                        <circle 
+                          cx="50" 
+                          cy="50" 
+                          r={radius} 
+                          fill="none" 
+                          stroke={strokeColor} 
+                          strokeWidth="8"
+                          strokeDasharray={circumference} 
+                          strokeDashoffset={strokeDashoffset}
+                          strokeLinecap="round"
+                          style={{ 
+                            transition: "stroke-dashoffset 1s ease-out",
+                            filter: `drop-shadow(0 0 8px ${strokeColor}77)`
+                          }} 
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-2xl font-bold rp-mono text-white">{scoreVal}</span>
+                        <span className="text-[8px] uppercase text-slate-400 font-semibold mt-0.5">Score</span>
+                      </div>
+                    </div>
+                    {/* Right: Narrative */}
+                    <div className="flex-1 text-left">
+                      <h4 className="text-base font-bold text-white mb-2">
+                        Status: <span style={{ color: strokeColor }}>{report?.threat_level || 'Low'} Threat</span>
+                      </h4>
+                      <p className="text-xs text-slate-300 leading-relaxed rp-mono">
+                        {scoreVal >= 85 
+                          ? "This domain has a healthy security posture. No critical gaps were identified during active scanning."
+                          : `Gaps detected in: ${gaps.length > 0 ? gaps.join(", ") : "None"}. Remediation recommended to resolve vulnerabilities.`}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 h-full items-center mt-auto">
+                    <div className="flex flex-col items-center border-r border-white/10 pr-2">
+                      <div className="text-[10px] text-slate-400 rp-mono mb-2">A: {report?.url?.replace(/^https?:\/\/(www\.)?/, '')}</div>
+                      <div className="text-2xl font-bold rp-mono" style={{ color: strokeColor }}>
+                        {report?.summary_score ?? 0} ({report?.threat_level || 'Low'})
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center pl-2">
+                      <div className="text-[10px] text-slate-400 rp-mono mb-2">B: {reportB?.url?.replace(/^https?:\/\/(www\.)?/, '')}</div>
+                      <div className="text-2xl font-bold rp-mono" style={{ color: 
+                        reportB?.threat_level === "Critical" ? "#ef4444" : 
+                        reportB?.threat_level === "High" ? "#f97316" :    
+                        reportB?.threat_level === "Medium" ? "#f59e0b" :  
+                        "#10b981"
+                      }}>
+                        {reportB?.summary_score ?? 0} ({reportB?.threat_level || 'Low'})
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Tech stack */}
               <div data-card="tech" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col min-h-[220px]">

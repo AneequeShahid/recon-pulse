@@ -75,6 +75,14 @@ class EmailSecurity(BaseModel):
     spf_record: Optional[str] = None
     dmarc_record: Optional[str] = None
 
+class SocialPresence(BaseModel):
+    twitter: bool = False
+    linkedin: bool = False
+    github: bool = False
+    instagram: bool = False
+    facebook: bool = False
+    youtube: bool = False
+
 class ReportData(BaseModel):
     id: str
     url: str
@@ -95,7 +103,9 @@ class ReportData(BaseModel):
     dns_records: Optional[Dict[str, Any]] = None
     redirect_chain: Optional[RedirectChain] = None
     email_security: Optional[EmailSecurity] = None
+    social: Optional[SocialPresence] = None
     created_at: datetime
     status: str  # "pending" | "partial" | "complete" | "error"
+
 
 

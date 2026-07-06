@@ -7,7 +7,7 @@ from app.services import (
     ssl_service, pagespeed_service, gnews_service,
     github_service, carbon_service, tranco_service,
     puppeteer_service, wappalyzer_service, redirect_service,
-    email_security_service
+    email_security_service, social_service
 )
 from app.models import ReportData
 from app.database import save_report, update_report
@@ -40,6 +40,7 @@ async def run_report(report_id: str, url: str) -> None:
         tranco_service.fetch_rank(domain),
         redirect_service.fetch_redirect_chain(url),
         email_security_service.fetch_email_security(domain),
+        social_service.fetch_social_presence(domain),
         return_exceptions=True
     )
 
@@ -47,7 +48,7 @@ async def run_report(report_id: str, url: str) -> None:
     (screenshot_data, tech, domain_info, hosting,
      dns, security, performance, news,
      github, carbon, traffic, redirect_chain,
-     email_security) = [
+     email_security, social) = [
         None if isinstance(r, Exception) else r
         for r in results
     ]
@@ -71,9 +72,11 @@ async def run_report(report_id: str, url: str) -> None:
     report.traffic = traffic
     report.redirect_chain = redirect_chain
     report.email_security = email_security
+    report.social = social
     report.status = "complete"
 
     # Update database record
     await update_report(report)
+
 
 

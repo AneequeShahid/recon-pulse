@@ -493,16 +493,22 @@ function Dashboard() {
               {/* Palette */}
               <div data-card="palette" role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-4 rounded-xl p-6 flex flex-col min-h-[220px]">
                 <SectionLabel>Extracted Palette</SectionLabel>
-                <div className="flex gap-4 mt-auto h-20">
-                  {["#0a0a0a", "#3b82f6", "#ffffff"].map((c) => (
-                    <div key={c} className="flex-1 rounded-lg border border-white/20 relative group overflow-hidden"
-                         style={{ backgroundColor: c, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-sm">
-                        <span className="rp-mono text-white text-xs">{c}</span>
+                {isLoading ? (
+                  <div className="text-slate-500 rp-mono text-xs mt-auto">Extracting colors...</div>
+                ) : (report?.colors?.palette && report?.colors?.palette?.length > 0) ? (
+                  <div className="flex gap-4 mt-auto h-20">
+                    {report.colors.palette.map((c: string) => (
+                      <div key={c} className="flex-1 rounded-lg border border-white/20 relative group overflow-hidden"
+                           style={{ backgroundColor: c, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-sm">
+                          <span className="rp-mono text-white text-xs">{c}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[#c2c6d6] rp-mono text-xs mt-auto">No palette available</div>
+                )}
               </div>
 
               {/* Carbon */}
@@ -749,10 +755,13 @@ const getCardDetails = (report: any): Record<string, Detail> => {
       subtitle: "Visual palette values",
       icon: "palette",
       sections: [
-        { label: "Dominant Colors", rows: [
-          { k: "Color 1", v: "#0a0a0a" },
-          { k: "Color 2", v: "#3b82f6" },
-          { k: "Color 3", v: "#ffffff" }
+        { label: "Palette Colors", rows: report?.colors?.palette && report?.colors?.palette?.length > 0 ? (
+          report.colors.palette.map((c: string, idx: number) => ({
+            k: `Color ${idx + 1}`,
+            v: c
+          }))
+        ) : [
+          { k: "Dominant", v: report?.colors?.dominant || "None" }
         ]}
       ]
     },

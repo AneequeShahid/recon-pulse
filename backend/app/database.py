@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from typing import Optional
 import asyncio
 from supabase import create_client, Client
@@ -6,9 +7,35 @@ from app.models import ReportData
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+DB_PATH = "recon_pulse.db"
 
-# Initialize Supabase client
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Initialize Supabase client (with local mock fallback to avoid crash on import)
+supabase: Optional[Client] = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        print(f"Error initializing Supabase: {e}")
+        supabase = None
+
+def _init_sqlite_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS reports (
+            id TEXT PRIMARY KEY,
+            url TEXT NOT NULL,
+            status TEXT NOT NULL,
+            data TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+if not supabase:
+    print("WARNING: SUPABASE_URL or SUPABASE_KEY missing. Falling back to local SQLite database.")
+    _init_sqlite_db()
 
 def _report_to_row(report: ReportData) -> dict:
     return {
@@ -37,16 +64,48 @@ def _row_to_report(row: dict) -> ReportData:
     return ReportData.model_validate(row)
 
 def _save_report_sync(report: ReportData) -> None:
-    supabase.table("reports").insert(_report_to_row(report)).execute()
+    if supabase:
+        supabase.table("reports").insert(_report_to_row(report)).execute()
+    else:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        data_str = report.model_dump_json()
+        cursor.execute(
+            "INSERT INTO reports (id, url, status, data, created_at) VALUES (?, ?, ?, ?, ?)",
+            (report.id, report.url, report.status, data_str, report.created_at.isoformat())
+        )
+        conn.commit()
+        conn.close()
 
 def _get_report_sync(report_id: str) -> Optional[ReportData]:
-    response = supabase.table("reports").select("*").eq("id", report_id).execute()
-    if not response.data:
-        return None
-    return _row_to_report(response.data[0])
+    if supabase:
+        response = supabase.table("reports").select("*").eq("id", report_id).execute()
+        if not response.data:
+            return None
+        return _row_to_report(response.data[0])
+    else:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT data FROM reports WHERE id = ?", (report_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        return ReportData.model_validate_json(row[0])
 
 def _update_report_sync(report: ReportData) -> None:
-    supabase.table("reports").update(_report_to_row(report)).eq("id", report.id).execute()
+    if supabase:
+        supabase.table("reports").update(_report_to_row(report)).eq("id", report.id).execute()
+    else:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        data_str = report.model_dump_json()
+        cursor.execute(
+            "UPDATE reports SET status = ?, data = ? WHERE id = ?",
+            (report.status, data_str, report.id)
+        )
+        conn.commit()
+        conn.close()
 
 async def save_report(report: ReportData) -> None:
     loop = asyncio.get_running_loop()

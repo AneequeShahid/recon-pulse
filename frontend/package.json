@@ -4,10 +4,9 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "vite",
     "build": "vite build",
-    "postbuild": "node postbuild.cjs",
-    "build:dev": "vite build --mode development",
+    "postbuild": "echo Done",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write ."

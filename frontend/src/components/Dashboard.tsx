@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, lazy, Suspense } from "react";
 import axios from 'axios';
 import { useReportStream } from '../hooks/useReportStream';
 import { useWorkspace } from '../hooks/SessionWorkspace';
 import { addScanHistory, getIntegrationKeys, setIntegrationKeys as saveIntegrationKeys, getScanHistory, getIgnoredFindings, addIgnoredFinding, isFindingIgnored } from '../hooks/useStorage';
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-import { AttackPathView } from './AttackPathView';
+
+const AttackPathView = lazy(() => import('./AttackPathView').then(m => ({ default: m.AttackPathView })));
+const FindingsTableCard = lazy(() => import('./FindingsTableCard'));
+const RemediationCard = lazy(() => import('./RemediationCard'));
 
 // Set default workspace header for all axios requests
 const wsInterceptor = (config: any) => {
@@ -807,7 +810,7 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
           {activeReportId && (
             <div
               id="bento-grid-container"
-              className="grid grid-cols-1 md:grid-cols-12 gap-4 relative z-10"
+              className="grid grid-cols-1 md:grid-cols-12 grid-flow-row-dense gap-4 relative z-10"
               onClick={(e) => {
                 const el = (e.target as HTMLElement).closest("[data-card]") as HTMLElement | null;
                 if (el?.dataset.card) setActiveCard(el.dataset.card);
@@ -2046,184 +2049,50 @@ ${report.traffic?.rank_label || 'N/A'} (#${report.traffic?.tranco_rank || 'N/A'}
               )}
 
               {/* Findings Severity Table */}
-              {(report?.findings?.length ?? 0) > 0 && (
-                <div
-                  className="rp-bento col-span-1 md:col-span-12 rounded-xl p-6 flex flex-col min-h-[220px]"
-                  style={{ border: "1px solid rgba(239,68,68,0.15)", boxShadow: "0 0 24px rgba(239,68,68,0.04)" }}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center border"
-                        style={{ backgroundColor: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.3)" }}
-                      >
-                        <span className="mso text-base" style={{ color: "#ef4444" }}>security</span>
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold text-white">Active Findings</div>
-                        <div className="text-[10px] text-slate-400 rp-mono">
-                          {report.findings.filter((f: any) => f.severity === 'Critical').length} critical · {report.findings.filter((f: any) => f.severity === 'High').length} high · {report.findings.filter((f: any) => f.severity === 'Medium').length} medium
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      {['Critical','High','Medium','Low'].map(sev => {
-                        const count = report.findings.filter((f: any) => f.severity === sev).length;
-                        if (!count) return null;
-                        const colors: Record<string, string> = { Critical: '#ef4444', High: '#f97316', Medium: '#f59e0b', Low: '#6b7280' };
-                        const c = colors[sev];
-                        return (
-                          <span key={sev} className="text-[10px] px-2 py-0.5 rounded rp-mono font-semibold"
-                            style={{ backgroundColor: `${c}18`, color: c, border: `1px solid ${c}33` }}>
-                            {sev}: {count}
-                          </span>
-                        );
-                      })}
-                    </div>
+              {report?.findings && report.findings.length > 0 && (
+                <Suspense fallback={
+                  <div className="rp-bento col-span-1 md:col-span-12 rounded-xl p-6 h-[300px] rp-shimmer flex flex-col justify-between">
+                    <div className="h-6 bg-white/10 rounded w-1/4" />
+                    <div className="flex-1 bg-white/5 rounded-lg mt-4" />
                   </div>
-
-                  {/* Table */}
-                  <div className="rounded-lg border border-white/10 overflow-hidden">
-                    <div className="grid grid-cols-12 gap-0 bg-white/5 px-4 py-2 text-[10px] text-slate-400 rp-mono uppercase tracking-wide">
-                      <div className="col-span-1">Severity</div>
-                      <div className="col-span-5">Title</div>
-                      <div className="col-span-3">Source</div>
-                      <div className="col-span-2">MITRE</div>
-                      <div className="col-span-1 text-right">Status</div>
-                    </div>
-                    <div className="divide-y divide-white/5 max-h-[240px] overflow-y-auto">
-                      {[...report.findings]
-                        .sort((a: any, b: any) => {
-                          const order: Record<string,number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4 };
-                          return (order[a.severity] ?? 5) - (order[b.severity] ?? 5);
-                        })
-                        .map((finding: any, i: number) => {
-                          const colors: Record<string,string> = { Critical: '#ef4444', High: '#f97316', Medium: '#f59e0b', Low: '#6b7280', Info: '#3b82f6' };
-                          const c = colors[finding.severity] || '#6b7280';
-                          return (
-                            <div key={finding.id || i} className="grid grid-cols-12 gap-0 px-4 py-2.5 text-xs hover:bg-white/[0.03] transition-colors items-center">
-                              <div className="col-span-1">
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold rp-mono"
-                                  style={{ backgroundColor: `${c}18`, color: c, border: `1px solid ${c}30` }}>
-                                  {finding.severity?.[0] || '?'}
-                                </span>
-                              </div>
-                              <div className="col-span-5 text-white font-medium truncate pr-3">{finding.title}</div>
-                              <div className="col-span-3 text-slate-400 rp-mono text-[10px] truncate">{finding.source || '—'}</div>
-                              <div className="col-span-2">
-                                {finding.mitre_technique_id ? (
-                                  <span className="text-[9px] rp-mono px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-                                    {finding.mitre_technique_id}
-                                  </span>
-                                ) : <span className="text-slate-600 text-[10px]">—</span>}
-                              </div>
-                              <div className="col-span-1 text-right">
-                                {finding.is_promoted ? (
-                                  <span className="text-[9px] rp-mono text-purple-400">In Case</span>
-                                ) : (
-                                  <span className="text-[9px] rp-mono text-slate-500">Open</span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                </div>
+                }>
+                  <FindingsTableCard findings={report.findings} />
+                </Suspense>
               )}
 
               {/* Attack Path Visualization */}
               {report?.attack_path && report.attack_path.length > 1 && (
-                <div data-card="attack_path" onClick={() => setActiveCard('attack_path')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-6 rounded-xl p-6 flex flex-col min-h-[200px]">
-                    <div className="flex items-center justify-between mb-2">
-                      <SectionLabel>Attack Surface Graph</SectionLabel>
-                      <span className="text-[10px] text-slate-400 rp-mono">{report.attack_path.length} nodes</span>
-                    </div>
-                    <div className="flex-1 min-h-[140px]">
-                      <AttackPathView nodes={report.attack_path} />
-                    </div>
+                <div data-card="attack_path" onClick={() => setActiveCard('attack_path')} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-6 rounded-xl p-6 flex flex-col min-h-[300px] h-[300px]">
+                  <div className="flex items-center justify-between mb-2 shrink-0">
+                    <SectionLabel>Attack Surface Graph</SectionLabel>
+                    <span className="text-[10px] text-slate-400 rp-mono">{report.attack_path.length} nodes</span>
                   </div>
-                )}
-
-                {/* Remediation Guide Card */}
-                {(report?.remediation_steps?.length ?? 0) > 0 && (
-                  <div
-                    data-card="remediation"
-                    role="button"
-                    tabIndex={0}
-                    className="rp-bento col-span-1 md:col-span-9 rounded-xl p-6 flex flex-col min-h-[200px]"
-                    style={{ border: "1px solid rgba(245,158,11,0.2)", boxShadow: "0 0 32px rgba(245,158,11,0.06)" }}
-                  >
-                    {/* Card header */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center border"
-                          style={{ backgroundColor: "rgba(245,158,11,0.1)", borderColor: "rgba(245,158,11,0.3)" }}
-                        >
-                          <span className="mso text-base" style={{ color: "#f59e0b" }}>build</span>
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-white">Remediation Guide</div>
-                          <div className="text-[10px] text-slate-400 rp-mono">
-                            {report.remediation_steps.length} patch{report.remediation_steps.length !== 1 ? "es" : ""} auto-generated · click any step to copy config
-                          </div>
-                        </div>
+                  <div className="flex-1 min-h-0 relative">
+                    <Suspense fallback={
+                      <div className="w-full h-full rounded-lg bg-black/40 border border-white/5 flex items-center justify-center text-slate-500 rp-mono text-xs">
+                        Loading Attack Surface Graph...
                       </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setActiveCard('remediation'); }}
-                        className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer hover:scale-105"
-                        style={{ backgroundColor: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)" }}
-                      >
-                        Open Patch Guide →
-                      </button>
-                    </div>
-
-                    {/* Step pills grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {report.remediation_steps.map((step: any, idx: number) => {
-                        const isSecurity = step.title?.toLowerCase().includes("header");
-                        const isEmail    = step.title?.toLowerCase().includes("email") || step.title?.toLowerCase().includes("spf") || step.title?.toLowerCase().includes("dmarc");
-                        const isTLS      = step.title?.toLowerCase().includes("ssl") || step.title?.toLowerCase().includes("tls");
-                        const isHTTPS    = step.title?.toLowerCase().includes("https") || step.title?.toLowerCase().includes("redirect");
-                        const isHTTP2    = step.title?.toLowerCase().includes("http/2");
-                        const color = isTLS ? "#ef4444" : isEmail ? "#8b5cf6" : isSecurity ? "#f97316" : isHTTPS ? "#3b82f6" : isHTTP2 ? "#10b981" : "#f59e0b";
-                        const icon  = isTLS ? "lock" : isEmail ? "mail" : isSecurity ? "shield" : isHTTPS ? "http" : isHTTP2 ? "speed" : "build";
-                        const mitre = step.mitre_attack || [];
-
-                        return (
-                          <div
-                            key={idx}
-                            onClick={(e) => { e.stopPropagation(); setActiveCard('remediation'); }}
-                            className="group rounded-lg p-3 border cursor-pointer transition-all hover:scale-[1.02]"
-                            style={{ backgroundColor: `${color}0d`, borderColor: `${color}30` }}
-                          >
-                            <div className="flex items-start gap-2">
-                              <span className="mso text-sm mt-0.5 shrink-0" style={{ color }}>{icon}</span>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-xs font-semibold text-white leading-snug truncate">{step.title}</div>
-                                <div className="text-[10px] text-slate-400 rp-mono mt-0.5 leading-relaxed line-clamp-2">{step.description}</div>
-                              </div>
-                            </div>
-                            {mitre.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {mitre.slice(0, 2).map((m: any) => (
-                                  <span
-                                    key={m.technique_id}
-                                    className="px-1.5 py-0.5 rounded text-[9px] font-semibold rp-mono"
-                                    style={{ backgroundColor: `${color}20`, color, border: `1px solid ${color}40` }}
-                                  >
-                                    {m.technique_id}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                    }>
+                      <AttackPathView nodes={report.attack_path} />
+                    </Suspense>
                   </div>
-                )}
+                </div>
+              )}
+
+              {/* Remediation Guide Card */}
+              {report?.remediation_steps && report.remediation_steps.length > 0 && (
+                <Suspense fallback={
+                  <div className="rp-bento col-span-1 md:col-span-9 rounded-xl p-6 h-[300px] rp-shimmer flex flex-col justify-between">
+                    <div className="h-6 bg-white/10 rounded w-1/3" />
+                    <div className="flex-1 bg-white/5 rounded-lg mt-4" />
+                  </div>
+                }>
+                  <RemediationCard
+                    remediationSteps={report.remediation_steps}
+                    onOpenGuide={() => setActiveCard('remediation')}
+                  />
+                </Suspense>
+              )}
 
               {/* Integrations */}
               <div data-card="integrations" onClick={() => setShowIntegrations(true)} role="button" tabIndex={0} className="rp-bento col-span-1 md:col-span-3 rounded-xl p-6 flex flex-col justify-between min-h-[120px]">

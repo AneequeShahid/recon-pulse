@@ -1,183 +1,99 @@
-# Recon Pulse 📡
+# RECON PULSE
 
-<p align="center">
-  <strong>Live Website Intelligence & Reconnaissance Dashboard</strong><br>
-  An elegant, real-time web scanner presenting progressive, side-by-side technical reconnaissance data in a premium Bento grid.
-</p>
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-recon--pulse-blue)](https://recon-pulse-1.onrender.com)
+[![Backend](https://img.shields.io/badge/Backend-FastAPI-green)](https://recon-pulse.onrender.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
-<p align="center">
-  <a href="https://recon-pulse-1.onrender.com"><img src="https://img.shields.io/badge/Live_Demo-https%3A%2F%2Frecon--pulse--1.onrender.com-blueviolet?style=for-the-badge" alt="Live Demo"></a>
-  <a href="https://recon-pulse.onrender.com"><img src="https://img.shields.io/badge/API_Endpoint-https%3A%2F%2Frecon--pulse.onrender.com-blue?style=for-the-badge" alt="API Endpoint"></a>
-</p>
+> Drop any URL. Get complete website intelligence in 30 seconds.
 
-<p align="center">
-  <img src="https://img.shields.io/badge/React-18-blue.svg?logo=react&logoColor=white" alt="React">
-  <img src="https://img.shields.io/badge/FastAPI-0.100+-green.svg?logo=fastapi&logoColor=white" alt="FastAPI">
-  <img src="https://img.shields.io/badge/Tailwind_CSS-3-blue.svg?logo=tailwindcss&logoColor=white" alt="Tailwind">
-  <img src="https://img.shields.io/badge/Vite-5-646CFF.svg?logo=vite&logoColor=white" alt="Vite">
-  <img src="https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite&logoColor=white" alt="SQLite">
-  <img src="https://img.shields.io/badge/Supabase-Supported-3ECF8E?logo=supabase&logoColor=white" alt="Supabase">
-</p>
+**[→ Try Live Demo](https://recon-pulse-1.onrender.com)**
 
 ---
 
-## 🧭 Architectural Philosophy: Zero-Friction, Local-First
+## What is Recon Pulse?
 
-Recon Pulse operates as a **stateless reconnaissance engine**. All workspace data, integration keys, and scan histories reside locally in your browser, ensuring complete privacy and zero-latency performance.
+Recon Pulse replaces 10 different tools with one dashboard. Paste any domain
+and get a full intelligence report: tech stack, security grade, threat intel,
+performance metrics, hosting info, email security, social presence, trackers,
+redirect chain, DNS records, and more — all streaming in real time.
 
-- **No login wall** — Click to scan, immediately upon landing
-- **Local-First persistence** — Scan history, preferences, and integration keys stored in browser localStorage
-- **Ephemeral Workspaces** — Auto-generated workspace_id groups session data without requiring an account
-- **Client-Side Encryption** — Jira/GitHub credentials encrypted in browser, passed as ephemeral payloads — never stored on the server
-- **Audit logging by workspace** — Server logs actions by workspace_id, not user_id, maintaining compliance without PII
+## Features
 
-Built with research-grade methodologies derived from [Nuclei](https://github.com/projectdiscovery/nuclei), [Shuffle](https://github.com/Shuffle/shuffle), and [TheHive](https://github.com/TheHive-Project/TheHive).
-
----
-
-Recon Pulse uses a decoupled client-server architecture built for minimal latency, progressive data streaming, and intelligent local caching.
-
-```text
-                                  +---------------------------------------+
-                                  |            React Frontend             |
-                                  |           (Vite 5 + TS)               |
-                                  +---------------------------------------+
-                                    |                 ^                 ^
-                      1. POST /api/report  |                 | 3. SSE Stream   | 2. Debounced
-                                           v                 | (EventSource)   |    Prefetch
-                                  +---------------------------------------+
-                                  |            FastAPI Backend            |
-                                  +---------------------------------------+
-                                    |                 |
-                    4. Cache Lookup  |                 | 5. Concurrent Gather
-                     (24-Hour TTL)   v                 v (Custom Task Timeouts)
-                           +---------------+   +---------------------------------+
-                           | Supabase DB   |   | 12+ Scanner Services:           |
-                           | (SQLite Fall) |   | - DNS Resolvers  - Geo IP       |
-                           +---------------+   | - SSL Headers    - PageSpeed    |
-                                               | - Wayback Archive- Puppeteer    |
-                                               | - Email Security - Trackers     |
-                                               +---------------------------------+
-```
-
----
-
-## 📡 Core Discovery Features
-
-Recon Pulse conducts comprehensive multi-threaded scans of any target domain, resolving data across 12+ channels:
-
-*   **HTTP Redirect Chain**: Recursively follows redirects up to 10 hops, recording the URL, status code (e.g. 301, 302, 200), and redirection location headers.
-*   **Email Spoofing Security**: Queries Google DoH to verify domain SPF, DMARC, and DKIM DNS configuration records.
-*   **Robots.txt & Sitemap Discovery**: Parses root `/robots.txt` files and checks default or declared `/sitemap.xml` paths to map search visibility structures.
-*   **Technology Stack & Trackers**: Detects frontend frameworks, CDNs, widgets, Google Fonts, and tracking scripts (Google Analytics, Facebook Pixel, Intercom, Crisp, Stripe, Mixpanel, etc.).
-*   **Wayback Machine Archive History**: Polls the Internet Archive to determine when a website was first index-captured.
-*   **HTTP Protocol Checker**: Inspects socket negotiations and Alt-Svc headers to report HTTP/2 and HTTP/3 support.
-*   **Geolocation & Hosting Provider**: Translates server IPs to geographical coordinates and maps ASNs to host names (Amazon AWS, GCP, Azure, Cloudflare, DigitalOcean).
-*   **DNS Zone Resolution**: Concurrently queries A, AAAA, MX, TXT, and NS records via Google's DNS-over-HTTPS.
-*   **Visual Assets & Colors**: Spawns a headless Puppeteer instance to capture base64 viewport screenshots and extracts the dominant color palette directly on the canvas.
-*   **Traffic Popularity**: Cross-references global rankings against weekly Tranco data.
-
----
-
-## ⚡ Performance Optimizations
-
-1.  **Debounced Prefetching (P1)**: When a user starts typing in the search bar, the client waits 500ms and fires a background `/api/prefetch` request. This runs IP Geolocation and RDAP registration services ahead of time. When the user clicks "Scan", these elements load instantly from the cache.
-2.  **SSE Progressive Stream (F1 & P2)**: Instead of blocking on slow services, the client connects to an EventSource streaming route. As each service completes, the backend updates the Supabase database (with SQLite fallback), and cards pop in with smooth CSS skeleton shimmers.
-3.  **Task Timeout Tuning (P3)**: All scanner tasks are wrapped in customized timeouts to guarantee speedy runs:
-    *   **Fast Tasks (IP, DNS)**: 5-second timeout limit.
-    *   **Medium Tasks (GNews, GitHub, Stack)**: 7-second timeout limit.
-    *   **Slow Tasks (SSL, Wayback)**: 15-second timeout limit.
-
----
-
-## ⌨️ Keyboard Shortcuts & UX Utilities
-
-For command-line power users, the dashboard features active key bindings:
-
-| Shortcut | Action |
+| Feature | Data Source |
 |---|---|
-| `Ctrl + K` or `/` | Focus first target domain input |
-| `Enter` | Trigger scan execution |
-| `Escape` | Clear current search inputs and reset grid |
-| `Ctrl + E` | Export complete report as Markdown |
-| `Ctrl + S` | Copy shareable URL to clipboard |
+| Website Screenshot | Microlink (free) |
+| Tech Stack Detection | Custom fingerprinter |
+| Security Grade | Python ssl module |
+| Performance Score | Google PageSpeed API |
+| Threat Intelligence | VirusTotal + AlienVault OTX + Shodan |
+| Hosting & ASN | ip-api.com (free) |
+| Domain Info | RDAP Protocol (free) |
+| DNS Records | Google DNS over HTTPS (free) |
+| Email Security | Google DNS (SPF/DMARC/DKIM) |
+| Social Presence | HEAD requests (no API) |
+| Redirect Chain | httpx (no API) |
+| Tracker Inventory | HTML fingerprinting |
+| Font Detection | Google Fonts regex |
+| Website Age | Wayback Machine API (free) |
+| HTTP Version | httpx http2 (no API) |
+| Robots.txt | Direct fetch (no API) |
+| Carbon Footprint | Website Carbon API (free) |
+| Traffic Rank | Tranco List (free) |
+| News Mentions | GNews API (free) |
+| Color Palette | Canvas API (client side) |
 
----
+## Architecture
 
-## ⚙️ Environment Variables Configuration
-
-Create a `.env` file inside the `backend/` directory.
-
-```env
-# Required for Performance Card (PageSpeed Insights)
-PAGESPEED_API_KEY=AIzaSyCqN...
-
-# Required for GNews Card
-GNEWS_API_KEY=gnews_key_here...
-
-# Optional: Required for GitHub stats lookup
-GITHUB_API_KEY=github_pat_here...
-
-# Optional: Remote DB configuration (defaults to local SQLite if omitted)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-supabase-anon-key
+```
+User Input
+    ↓
+React Frontend (Vite 5 + Tailwind)
+    ↓
+FastAPI Backend
+    ↓
+asyncio.gather() → 18 parallel services
+    ↓
+Supabase (report cache, 24hr TTL)
+    ↓
+SSE Stream → Frontend cards fade in progressively
 ```
 
----
+## Stack
 
-## 🛠️ Developer Setup & Installation Guide
+- **Frontend:** React 19, Vite 5, Tailwind CSS 3, react-router-dom
+- **Backend:** FastAPI, httpx, asyncio, Pydantic
+- **Database:** Supabase (PostgreSQL)
+- **Deployment:** Render.com (free tier)
+- **APIs:** 12 free APIs, zero paid dependencies
 
-### Backend Service (FastAPI)
-1.  Navigate to the backend directory:
-    ```bash
-    cd backend
-    ```
-2.  Create and activate virtual environment:
-    ```bash
-    # Windows
-    python -m venv venv
-    .\venv\Scripts\Activate
+## Local Setup
 
-    # macOS/Linux
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-3.  Install dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
-4.  Run FastAPI app:
-    ```bash
-    uvicorn app.main:app --reload
-    ```
-    The Swagger UI documentation is available at `http://localhost:8000/docs`.
-
-### Frontend Client (React)
-1.  Navigate to the frontend directory:
-    ```bash
-    cd ../frontend
-    ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Launch the development server:
-    ```bash
-    npm run dev
-    ```
-    Open `http://localhost:5173` to view the Recon Pulse dashboard locally.
-
----
-
-## 🧪 Running Unit Tests
-Recon Pulse contains a test suite checking RDAP parsing, DNS queries, SSL handshakes, and caching layers:
 ```bash
+# Backend
 cd backend
-.\venv\Scripts\python -m pytest tests
+python -m venv venv
+.\venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+cp .env.example .env    # Fill in your free API keys
+uvicorn app.main:app --reload
+
+# Frontend
+cd frontend
+npm install
+echo "VITE_API_URL=http://localhost:8000" > .env
+npm run dev
 ```
-All tests must pass before deploying or pushing commits.
 
----
+## Free API Keys Required
 
-## 📄 License
-This project is open-source and licensed under the MIT License.
+| Key | Where to get |
+|---|---|
+| PAGESPEED_API_KEY | console.cloud.google.com |
+| GITHUB_API_KEY | github.com/settings/tokens |
+| GNEWS_API_KEY | gnews.io |
+| VIRUSTOTAL_API_KEY | virustotal.com |
+| ALIENVAULT_OTX_KEY | otx.alienvault.com |
+| SHODAN_API_KEY | shodan.io |
+| SUPABASE_URL + KEY | supabase.com |
+
+Built by [Aneeque Shahid](https://github.com/ANEEQUESHAHID)

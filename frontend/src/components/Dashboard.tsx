@@ -291,8 +291,11 @@ export function Dashboard() {
     e.preventDefault();
     if (!urlInput) return;
     setSubmitting(true);
+    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    console.log(`[RECON PULSE SCAN INITIATING]`);
+    console.log(`- API URL: ${apiBaseUrl}`);
+    console.log(`- X-Workspace-Id: ${localStorage.getItem('rp_workspace_id') || 'not set'}`);
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       if (compareMode && urlInputB) {
         const [resA, resB] = await Promise.all([
           axios.post(`${apiBaseUrl}/api/report`, { url: urlInput }),

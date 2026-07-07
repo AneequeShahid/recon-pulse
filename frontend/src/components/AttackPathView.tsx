@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -140,8 +140,13 @@ export function AttackPathView({ nodes: rawNodes }: { nodes: any[] }) {
     return { initialNodes: layouted, initialEdges: edges };
   }, [rawNodes]);
 
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  useEffect(() => {
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+  }, [initialNodes, initialEdges, setNodes, setEdges]);
 
   if (!rawNodes || rawNodes.length === 0) {
     return (

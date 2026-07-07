@@ -20,6 +20,9 @@ def calculate_pulse_score(report: ReportData) -> Tuple[int, str]:
     if report.threat_intel:
         malicious = report.threat_intel.virustotal_malicious
         reputation_score = max(0, 25 - (malicious * 15))
+    elif report.reputation:
+        malicious = report.reputation.malicious_count
+        reputation_score = max(0, 25 - (malicious * 15))
     score += reputation_score
     
     # 2. Security (35%)

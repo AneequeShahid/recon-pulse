@@ -11,3 +11,6 @@ async def fetch_http_version(url: str) -> HTTPVersionInfo:
             return HTTPVersionInfo(http2=http2, http3=http3)
     except Exception:
         return HTTPVersionInfo()
+
+async def check_http_version(domain: str) -> HTTPVersionInfo:
+    return await fetch_http_version(f"https://{domain}")

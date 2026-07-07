@@ -20,3 +20,6 @@ async def fetch_robots(domain: str) -> RobotsInfo:
             )
     except Exception:
         return RobotsInfo()
+
+async def fetch_robots_and_sitemap(domain: str) -> RobotsInfo:
+    return await fetch_robots(domain)

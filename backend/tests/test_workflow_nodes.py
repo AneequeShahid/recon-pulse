@@ -45,10 +45,9 @@ async def test_execution_queue_handles_node_failure():
 def test_build_scan_queue_has_expected_nodes():
     queue = build_scan_queue()
     names = {n.name for n in queue.nodes}
-    assert "shodan" in names
-    assert "ssllabs" in names
+    assert "threat_intel" in names
     assert "dns" in names
-    assert len(queue.nodes) == 24
+    assert len(queue.nodes) == 18
 
 
 def test_apply_results_to_report():

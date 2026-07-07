@@ -84,6 +84,7 @@ def _report_to_row(report: ReportData) -> dict:
         "sbom": report.sbom.model_dump(mode="json") if report.sbom else None,
         "attack_path": [n.model_dump(mode="json") for n in report.attack_path] if report.attack_path else None,
         "findings": [f.model_dump(mode="json") for f in report.findings] if report.findings else None,
+        "threat_intel": report.threat_intel.model_dump(mode="json") if report.threat_intel else None,
         "created_at": report.created_at.isoformat(),
         "status": report.status,
     }

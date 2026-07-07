@@ -219,6 +219,17 @@ class ReputationInfo(BaseModel):
     total_scanners: int = 0
     status: str = "Clean"  # "Clean" | "Suspicious" | "Malicious" | "Unknown"
 
+class ThreatIntel(BaseModel):
+    virustotal_malicious: int = 0
+    virustotal_suspicious: int = 0
+    virustotal_clean: int = 0
+    alienvault_pulses: int = 0
+    alienvault_malicious: bool = False
+    shodan_ports: List[int] = []
+    shodan_vulns: List[str] = []
+    shodan_org: Optional[str] = None
+    threat_score: int = 0
+
 class ObservatoryInfo(BaseModel):
     grade: Optional[str] = None
     score: Optional[int] = None
@@ -272,6 +283,7 @@ class ReportData(BaseModel):
     wayback: Optional[WaybackInfo] = None
     http_version: Optional[HTTPVersionInfo] = None
     robots: Optional[RobotsInfo] = None
+    threat_intel: Optional[ThreatIntel] = None
     bgp: Optional[BGPInfo] = None
     subdomains: Optional[SubdomainInfo] = None
     shadow_subdomains: Optional[List[ShadowSubdomain]] = None

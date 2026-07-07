@@ -132,6 +132,18 @@ export function Dashboard() {
 
   const [showFullRobots, setShowFullRobots] = useState(false);
   const [showFullRobotsB, setShowFullRobotsB] = useState(false);
+  const [paletteTimeout, setPaletteTimeout] = useState(false);
+
+  useEffect(() => {
+    if (!reportId) {
+      setPaletteTimeout(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPaletteTimeout(true);
+    }, 10000);
+    return () => clearTimeout(timer);
+  }, [reportId]);
 
   // Load history on mount
   const [history, setHistory] = useState<any[]>(() =>
@@ -760,7 +772,7 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
           <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Hosting</div>
           <div className="py-2 text-left">
             <div className="text-lg font-bold text-[var(--text-primary)] tracking-wide truncate">
-              {data.hosting?.provider_name || 'Unknown Cloud'}
+              {data.hosting?.provider_name || data.hosting?.isp || 'Unknown Cloud'}
             </div>
             <div className="text-xs font-mono text-[var(--text-secondary)] mt-0.5">{data.hosting?.ip || '0.0.0.0'}</div>
           </div>
@@ -1260,6 +1272,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
                   {copiedHex === 'all' ? 'Copied!' : 'Copy All'}
                 </button>
               </div>
+            </div>
+          ) : paletteTimeout && !data.screenshot_url ? (
+            <div className="flex-1 flex items-center justify-center text-[var(--text-muted)] text-xs">
+              Screenshot required for palette
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-[var(--text-muted)] text-xs">

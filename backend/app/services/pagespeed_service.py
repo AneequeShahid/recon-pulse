@@ -15,6 +15,8 @@ async def fetch_performance(url: str) -> PerformanceInfo:
             
         async with httpx.AsyncClient(timeout=10) as client:
             res = await client.get(endpoint, params=params)
+            print(f"[PAGESPEED] status: {res.status_code}")
+            print(f"[PAGESPEED] response: {res.text[:200]}")
             if res.status_code != 200:
                 return PerformanceInfo()
                 

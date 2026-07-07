@@ -1,10 +1,14 @@
 import httpx
 from app.models import RobotsInfo
+from urllib.parse import urlparse
 
 async def fetch_robots(domain: str) -> RobotsInfo:
     try:
+        parsed = urlparse(domain if domain.startswith('http') else f'https://{domain}')
+        clean_domain = parsed.netloc.replace('www.', '') or domain.replace('www.', '')
+        
         async with httpx.AsyncClient(timeout=7, follow_redirects=True) as client:
-            r = await client.get(f"https://{domain}/robots.txt")
+            r = await client.get(f"https://{clean_domain}/robots.txt")
             robots_txt = r.text[:2000] if r.status_code == 200 else None
             sitemap_url = None
             if robots_txt:

@@ -28,7 +28,7 @@ app.add_middleware(AuditMiddleware)
 
 app.include_router(report.router, prefix="/api")
 app.include_router(report.root_router)
-app.include_router(health.router, prefix="/api")
+app.include_router(health.router)
 app.include_router(enterprise.router)
 app.include_router(compliance.router)
 app.include_router(integrations_router)

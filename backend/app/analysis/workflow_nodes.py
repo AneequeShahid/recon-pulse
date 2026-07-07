@@ -36,6 +36,7 @@ from app.services import (
     ssl_service,
     ssllabs_service,
     subdomain_service,
+    threat_intel_service,
     tranco_service,
     wappalyzer_service,
     wayback_service,
@@ -118,6 +119,7 @@ def build_scan_queue() -> ExecutionQueue:
         ServiceWorkflowNode("screenshot", puppeteer_service.fetch_screenshot_and_meta, 7, lambda c: (c.url,)),
         ServiceWorkflowNode("tech_stack", wappalyzer_service.fetch_tech_stack, 7, lambda c: (c.url,)),
         ServiceWorkflowNode("domain", rdap_service.fetch_domain_info, 7),
+        ServiceWorkflowNode("hosting", ip_service.fetch_hosting_info, 7),
         ServiceWorkflowNode("dns", dns_service.fetch_dns_records, 5),
         ServiceWorkflowNode("security", ssl_service.fetch_ssl_grade, 15),
         ServiceWorkflowNode("performance", pagespeed_service.fetch_performance, 7, lambda c: (c.url,)),
@@ -129,22 +131,9 @@ def build_scan_queue() -> ExecutionQueue:
         ServiceWorkflowNode("email_security", email_security_service.fetch_email_security, 7),
         ServiceWorkflowNode("social", social_service.fetch_social_presence, 7),
         ServiceWorkflowNode("wayback", wayback_service.fetch_wayback_info, 15),
-        ServiceWorkflowNode("http_version", http_version_service.check_http_version, 7),
-        ServiceWorkflowNode("robots", robots_service.fetch_robots_and_sitemap, 7),
-        ServiceWorkflowNode(
-            "bgp",
-            bgp_service.fetch_bgp_info,
-            7,
-            lambda c: (c.asn,),
-            depends_on_hosting=True,
-        ),
-        ServiceWorkflowNode("subdomains", subdomain_service.fetch_subdomains, 7),
-        ServiceWorkflowNode("reputation", reputation_service.fetch_domain_reputation, 5),
-        ServiceWorkflowNode("observatory", observatory_service.fetch_observatory_grade, 7),
-        ServiceWorkflowNode("shodan", shodan_service.fetch_shodan_info, 10),
-        ServiceWorkflowNode("securitytrails", securitytrails_service.fetch_securitytrails_info, 15),
-        ServiceWorkflowNode("alienvault", alienvault_service.fetch_alienvault_pulses, 10),
-        ServiceWorkflowNode("ssllabs", ssllabs_service.fetch_ssllabs_grade, 30),
+        ServiceWorkflowNode("http_version", http_version_service.fetch_http_version, 7, lambda c: (c.url,)),
+        ServiceWorkflowNode("robots", robots_service.fetch_robots, 7),
+        ServiceWorkflowNode("threat_intel", threat_intel_service.fetch_threat_intel, 10),
     ]
     return ExecutionQueue(nodes)
 
@@ -163,7 +152,7 @@ def apply_results_to_report(context: ScanContext) -> None:
 
     report.tech_stack = r.get("tech_stack")
     report.domain = r.get("domain")
-    report.hosting = context.hosting
+    report.hosting = r.get("hosting") or context.hosting
     report.dns_records = r.get("dns")
     report.security = r.get("security")
     report.performance = r.get("performance")
@@ -177,11 +166,4 @@ def apply_results_to_report(context: ScanContext) -> None:
     report.wayback = r.get("wayback")
     report.http_version = r.get("http_version")
     report.robots = r.get("robots")
-    report.bgp = r.get("bgp")
-    report.subdomains = r.get("subdomains")
-    report.reputation = r.get("reputation")
-    report.observatory = r.get("observatory")
-    report.shodan = r.get("shodan")
-    report.securitytrails = r.get("securitytrails")
-    report.alienvault = r.get("alienvault")
-    report.ssllabs = r.get("ssllabs")
+    report.threat_intel = r.get("threat_intel")

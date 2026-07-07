@@ -32,20 +32,17 @@ async def _run_legacy_gather(context: ScanContext) -> None:
         github_service, carbon_service, tranco_service,
         puppeteer_service, wappalyzer_service, redirect_service,
         email_security_service, social_service, wayback_service,
-        http_version_service, robots_service, bgp_service,
-        subdomain_service, reputation_service, observatory_service,
-        shodan_service, securitytrails_service, alienvault_service,
-        ssllabs_service,
+        http_version_service, robots_service, ip_service, threat_intel_service
     )
 
     domain = context.domain
     url = context.url
-    asn = context.asn
 
     results = await asyncio.gather(
         wrap_with_timeout(puppeteer_service.fetch_screenshot_and_meta(url), 7),
         wrap_with_timeout(wappalyzer_service.fetch_tech_stack(url), 7),
         wrap_with_timeout(rdap_service.fetch_domain_info(domain), 7),
+        wrap_with_timeout(ip_service.fetch_hosting_info(domain), 7),
         wrap_with_timeout(dns_service.fetch_dns_records(domain), 5),
         wrap_with_timeout(ssl_service.fetch_ssl_grade(domain), 15),
         wrap_with_timeout(pagespeed_service.fetch_performance(url), 7),
@@ -57,24 +54,16 @@ async def _run_legacy_gather(context: ScanContext) -> None:
         wrap_with_timeout(email_security_service.fetch_email_security(domain), 7),
         wrap_with_timeout(social_service.fetch_social_presence(domain), 7),
         wrap_with_timeout(wayback_service.fetch_wayback_info(domain), 15),
-        wrap_with_timeout(http_version_service.check_http_version(domain), 7),
-        wrap_with_timeout(robots_service.fetch_robots_and_sitemap(domain), 7),
-        wrap_with_timeout(bgp_service.fetch_bgp_info(asn), 7),
-        wrap_with_timeout(subdomain_service.fetch_subdomains(domain), 7),
-        wrap_with_timeout(reputation_service.fetch_domain_reputation(domain), 5),
-        wrap_with_timeout(observatory_service.fetch_observatory_grade(domain), 7),
-        wrap_with_timeout(shodan_service.fetch_shodan_info(domain), 10),
-        wrap_with_timeout(securitytrails_service.fetch_securitytrails_info(domain), 15),
-        wrap_with_timeout(alienvault_service.fetch_alienvault_pulses(domain), 10),
-        wrap_with_timeout(ssllabs_service.fetch_ssllabs_grade(domain), 30),
+        wrap_with_timeout(http_version_service.fetch_http_version(url), 7),
+        wrap_with_timeout(robots_service.fetch_robots(domain), 7),
+        wrap_with_timeout(threat_intel_service.fetch_threat_intel(domain), 10),
         return_exceptions=True,
     )
 
     keys = [
-        "screenshot", "tech_stack", "domain", "dns", "security", "performance",
-        "news", "github", "carbon", "traffic", "redirect_chain", "email_security",
-        "social", "wayback", "http_version", "robots", "bgp", "subdomains",
-        "reputation", "observatory", "shodan", "securitytrails", "alienvault", "ssllabs",
+        "screenshot", "tech_stack", "domain", "hosting", "dns", "security",
+        "performance", "news", "github", "carbon", "traffic", "redirect_chain",
+        "email_security", "social", "wayback", "http_version", "robots", "threat_intel",
     ]
     for key, result in zip(keys, results):
         context.results[key] = None if isinstance(result, Exception) else result

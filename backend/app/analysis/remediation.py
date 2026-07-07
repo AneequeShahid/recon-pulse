@@ -5,8 +5,8 @@ from app.services.mitre_service import map_mitre_for_remediation
 
 def _append(report: ReportData, steps: List[Dict[str, Any]], entry: Dict[str, Any]) -> None:
     vulns = []
-    if report.shodan and report.shodan.vulns:
-        vulns = report.shodan.vulns
+    if report.threat_intel and report.threat_intel.shodan_vulns:
+        vulns = report.threat_intel.shodan_vulns
     entry["mitre_attack"] = map_mitre_for_remediation(entry.get("title", ""), entry.get("description", ""), vulns)
     steps.append(entry)
 

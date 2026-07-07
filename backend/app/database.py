@@ -46,6 +46,7 @@ def _report_to_row(report: ReportData) -> dict:
         "og_title": report.og_title,
         "og_description": report.og_description,
         "favicon": report.favicon,
+        "executive_summary": report.executive_summary,
         "tech_stack": report.tech_stack.model_dump(mode="json") if report.tech_stack else None,
         "security": report.security.model_dump(mode="json") if report.security else None,
         "performance": report.performance.model_dump(mode="json") if report.performance else None,

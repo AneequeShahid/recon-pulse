@@ -129,3 +129,35 @@ def calculate_pulse_score(report: ReportData) -> Tuple[int, str]:
         threat_level = "Critical"
         
     return final_score, threat_level
+
+def get_executive_summary(report: ReportData) -> str:
+    risks = []
+    
+    # 1. Security / SSL / HTTPS
+    if report.security and not report.security.https:
+        risks.append("missing HTTPS enforcement leaves user connections unencrypted")
+    elif report.security and report.security.ssl_grade in ["C", "D", "F"]:
+        risks.append(f"a weak SSL certificate grade of {report.security.ssl_grade} exposes the domain to TLS-level interceptions")
+        
+    # 2. Threat Intel / Open Ports
+    if report.threat_intel and report.threat_intel.threat_score >= 40:
+        ports_str = f"open ports ({', '.join(map(str, report.threat_intel.shodan_ports))})" if report.threat_intel.shodan_ports else "known threat indicator flags"
+        risks.append(f"high threat score ({report.threat_intel.threat_score}/100) linked to {ports_str}")
+    elif report.threat_intel and report.threat_intel.virustotal_malicious > 0:
+        risks.append("flagged as malicious by blacklists and threat registries")
+
+    # 3. Email security spoofing
+    if report.email_security and (not report.email_security.spf or not report.email_security.dmarc):
+        missing = []
+        if not report.email_security.spf: missing.append("SPF")
+        if not report.email_security.dmarc: missing.append("DMARC")
+        risks.append(f"inadequate email protection (missing {'/'.join(missing)}) permits domain spoofing and phishing abuse")
+
+    if not risks:
+        return "Recon Pulse scan finished successfully. No critical configurations or threat indicators were detected on the target domain. The domain shows robust security, valid certificates, and active spoofing protections."
+
+    # Format into 3 sentences
+    risk_summary = "; ".join(risks[:3])
+    risk_summary = risk_summary[0].upper() + risk_summary[1:]
+    return f"Security audit for {report.url} identified key risks: {risk_summary}. Immediate remediation is recommended to seal exposed endpoints and secure configuration profiles."
+

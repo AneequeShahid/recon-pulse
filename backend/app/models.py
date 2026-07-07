@@ -266,6 +266,7 @@ class ReportData(BaseModel):
     og_title: Optional[str] = None
     og_description: Optional[str] = None
     favicon: Optional[str] = None
+    executive_summary: Optional[str] = None
     tech_stack: Optional[TechStack] = None
     security: Optional[SecurityInfo] = None
     performance: Optional[PerformanceInfo] = None

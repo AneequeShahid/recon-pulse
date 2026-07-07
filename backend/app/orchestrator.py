@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 from app.models import AttackPathNode, DarkWebIntel, ReportData
 from app.database import update_report
-from app.analysis.scoring import calculate_pulse_score
+from app.analysis.scoring import calculate_pulse_score, get_executive_summary
 from app.analysis.remediation import generate_remediation_steps
 from app.analysis.workflow_nodes import (
     ScanContext,
@@ -158,6 +158,7 @@ async def _run_post_scan_enrichment(context: ScanContext) -> bool:
             report.summary_score = max(0, report.summary_score - 15)
 
     report.remediation_steps = generate_remediation_steps(report)
+    report.executive_summary = get_executive_summary(report)
     return kev_match
 
 

@@ -30,6 +30,9 @@ venv/
 ENV/
 env/
 .env
+.env.local
+.env.production
+*.env
 
 # SQLite databases
 *.db

@@ -79,45 +79,46 @@ async def fetch_tech_stack(url: str) -> TechStack:
                 if tech not in categories[cat]:
                     categories[cat].append(tech)
 
-        # B5 - Tracker and cookie inventory
-        trackers_dict = {
-            "Google Analytics": ["google-analytics.com", "gtag(", "ga(", "UA-", "G-"],
-            "Facebook Pixel": ["connect.facebook.net", "fbq(", "fb-pixel"],
+        # Tracker detection
+        TRACKERS = {
+            "Google Analytics": ["google-analytics.com", "gtag(", "UA-", "G-"],
+            "Facebook Pixel": ["connect.facebook.net", "fbq("],
+            "Google Tag Manager": ["googletagmanager.com", "gtm.js"],
             "HotJar": ["hotjar.com", "hjSetting"],
             "Intercom": ["intercom.io", "intercomSettings"],
-            "Mixpanel": ["mixpanel.com", "mixpanel.track"],
-            "Segment": ["segment.com", "analytics.js"],
-            "Crisp": ["crisp.chat", "CRISP_WEBSITE_ID"],
-            "Drift": ["drift.com", "driftt.com"],
+            "Mixpanel": ["mixpanel.com"],
+            "Segment": ["cdn.segment.com", "analytics.js"],
+            "Crisp": ["crisp.chat"],
+            "Drift": ["drift.com"],
             "Zendesk": ["zendesk.com", "zESettings"],
             "Stripe": ["js.stripe.com"],
-            "Google Tag Manager": ["googletagmanager.com", "gtm.js"],
             "Microsoft Clarity": ["clarity.ms"],
             "LinkedIn Insight": ["snap.licdn.com"],
-            "Twitter Pixel": ["static.ads-twitter.com"],
             "TikTok Pixel": ["analytics.tiktok.com"],
+            "Twitter Pixel": ["static.ads-twitter.com"],
         }
         detected_trackers = []
-        for tracker, keywords in trackers_dict.items():
-            for kw in keywords:
-                if kw.lower() in html_body:
-                    detected_trackers.append(tracker)
-                    break
+        for tracker, sigs in TRACKERS.items():
+            if any(sig.lower() in html_body for sig in sigs):
+                detected_trackers.append(tracker)
 
-        # B7 - Font detector
+        # Font detection
         import re
         google_fonts = re.findall(
             r'fonts\.googleapis\.com/css[^"\']*family=([^&"\']+)',
             html_body
         )
-        fonts = list(set([f.split(':')[0].replace('+', ' ') for f in google_fonts]))
+        detected_fonts = list(set([
+            f.split(':')[0].replace('+', ' ').strip()
+            for f in google_fonts
+        ]))
 
-    print(f"[WAPPALYZER] detected: {technologies}, trackers: {detected_trackers}, fonts: {fonts}")
+    print(f"[WAPPALYZER] detected: {technologies}, trackers: {detected_trackers}, fonts: {detected_fonts}")
     return TechStack(
         technologies=technologies,
         categories=categories,
         trackers=detected_trackers,
-        fonts=fonts
+        fonts=detected_fonts
     )
 
 

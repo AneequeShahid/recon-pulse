@@ -89,7 +89,7 @@ import json
 @router.get("/report/{report_id}/stream")
 async def stream_report(report_id: str):
     async def event_generator():
-        for _ in range(30):  # max 30 polls = 45 seconds
+        for _ in range(40):
             report = await get_report(report_id)
             if report:
                 yield f"data: {report.model_dump_json()}\n\n"
@@ -97,14 +97,10 @@ async def stream_report(report_id: str):
                     break
             await asyncio.sleep(1.5)
         yield "data: {\"status\": \"timeout\"}\n\n"
-
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no"
-        }
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
     )
 
 @root_router.get("/r/{report_id}")

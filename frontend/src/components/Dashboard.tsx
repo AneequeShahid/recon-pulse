@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import axios from 'axios';
+import { ScanTicker } from "./ScanTicker";
 
 interface RedirectHop {
   url: string;
@@ -13,6 +14,7 @@ interface ReportProps {
   screenshot_url?: string;
   og_title?: string;
   og_description?: string;
+  executive_summary?: string;
   favicon?: string;
   tech_stack?: {
     technologies: string[];
@@ -176,6 +178,40 @@ export function Dashboard() {
     const updated = history.filter(x => x.url !== url);
     localStorage.setItem('rp_history', JSON.stringify(updated));
     setHistory(updated);
+  };
+
+  const handleRetry = async (serviceName: string) => {
+    if (!reportId) return;
+    const apiBase = import.meta.env.VITE_API_URL || 'https://recon-pulse.onrender.com';
+    try {
+      const res = await axios.post(`${apiBase}/api/report/${reportId}/refresh/${serviceName}`);
+      setReport(res.data);
+    } catch (err) {
+      console.log("Retry failed:", err);
+    }
+  };
+
+  const handleRetryB = async (serviceName: string) => {
+    if (!reportIdB) return;
+    const apiBase = import.meta.env.VITE_API_URL || 'https://recon-pulse.onrender.com';
+    try {
+      const res = await axios.post(`${apiBase}/api/report/${reportIdB}/refresh/${serviceName}`);
+      setReportB(res.data);
+    } catch (err) {
+      console.log("Retry B failed:", err);
+    }
+  };
+
+  const renderRefreshButton = (serviceName: string, isEmpty: boolean, side: 'A' | 'B') => {
+    if (!isEmpty) return null;
+    return (
+      <button
+        onClick={() => side === 'A' ? handleRetry(serviceName) : handleRetryB(serviceName)}
+        className="text-[9px] font-mono text-[var(--accent-blue)] border border-[var(--accent-blue)]/30 rounded px-1.5 py-0.5 hover:bg-[var(--accent-blue)]/10 transition-all ml-auto cursor-pointer"
+      >
+        ↻ Refresh
+      </button>
+    );
   };
 
   // Keyboard hotkeys
@@ -350,6 +386,9 @@ export function Dashboard() {
     if (!report) return;
     const md = `# Recon Pulse Report: ${report.url}
 > Generated ${new Date().toLocaleDateString()} by Recon Pulse
+
+## 📝 Security Executive Summary
+${report.executive_summary || 'No executive summary available.'}
 
 ## 🔒 Security
 - SSL Grade: ${report.security?.ssl_grade || 'N/A'}
@@ -578,6 +617,7 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
           )}
         </div>
       </div>
+      <ScanTicker report={report} submitting={submitting} />
     </div>
   );
 
@@ -621,9 +661,20 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 fade-in">
+        {data.executive_summary && (
+          <div className="card md:col-span-3 border-[var(--border)] border-l-4 border-l-[var(--accent-blue)] bg-[var(--bg-card)] p-4 text-left">
+            <div className="text-[10px] uppercase font-bold text-[var(--accent-blue)] tracking-wider mb-1.5">Security Executive Summary</div>
+            <p className="text-xs leading-relaxed text-[var(--text-secondary)] font-medium">
+              {data.executive_summary}
+            </p>
+          </div>
+        )}
         {/* Screenshot Card */}
         <div className="card md:col-span-2 h-[340px] flex flex-col relative overflow-hidden group">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider mb-2">Screenshot & Metadata</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Screenshot & Metadata</span>
+            {renderRefreshButton("screenshot", !data.screenshot_url, side)}
+          </div>
           <div className="flex-1 relative bg-[var(--bg-primary)] rounded overflow-hidden flex items-center justify-center">
             {data.screenshot_url ? (
               <img
@@ -649,7 +700,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Tech Stack Card */}
         <div className="card h-[340px] flex flex-col">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider mb-2 text-left">Tech Stack</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Tech Stack</span>
+            {renderRefreshButton("tech_stack", !data.tech_stack?.technologies?.length, side)}
+          </div>
           <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-xs text-left">
             {data.tech_stack?.technologies && data.tech_stack.technologies.length > 0 ? (
               Object.entries(data.tech_stack.categories || {}).map(([cat, techs]) => {
@@ -680,7 +734,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Security Card */}
         <div className={`card h-[300px] flex flex-col justify-between ${getCardBorder('security', side)}`}>
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Security Grade</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Security Grade</span>
+            {renderRefreshButton("security", !data.security?.ssl_grade, side)}
+          </div>
           <div className="text-center py-4">
             <div className="text-6xl font-extrabold" style={{
               color: ['A+', 'A', 'B'].includes(data.security?.ssl_grade || '') ? 'var(--accent-green)' :
@@ -702,7 +759,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Performance Card */}
         <div className={`card h-[300px] flex flex-col justify-between ${getCardBorder('performance', side)}`}>
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Performance</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Performance</span>
+            {renderRefreshButton("performance", data.performance?.performance_score === 0 || data.performance?.performance_score === undefined, side)}
+          </div>
           <div>
             {renderCircleGauge(data.performance?.performance_score || 0)}
           </div>
@@ -724,7 +784,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Threat Intel Card */}
         <div className={`card h-[300px] flex flex-col justify-between ${getCardBorder('threat', side)}`}>
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Threat Intel</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Threat Intel</span>
+            {renderRefreshButton("threat_intel", data.threat_intel?.threat_score === undefined, side)}
+          </div>
           <div className="flex items-center justify-between py-2 border-b border-[var(--border)] pb-3">
             <div className="text-left">
               <div className="text-3xl font-extrabold" style={{
@@ -769,7 +832,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Hosting Card */}
         <div className="card h-[280px] flex flex-col justify-between">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Hosting</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Hosting</span>
+            {renderRefreshButton("hosting", !data.hosting?.ip, side)}
+          </div>
           <div className="py-2 text-left">
             <div className="text-lg font-bold text-[var(--text-primary)] tracking-wide truncate">
               {data.hosting?.provider_name || data.hosting?.isp || 'Unknown Cloud'}
@@ -796,7 +862,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Domain Card */}
         <div className="card h-[280px] flex flex-col justify-between">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Domain</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Domain</span>
+            {renderRefreshButton("domain", !data.domain?.registrar, side)}
+          </div>
           <div className="py-1 text-left">
             <div className="text-xs text-[var(--text-secondary)] truncate">Registrar:</div>
             <div className="text-sm font-semibold truncate">{data.domain?.registrar || 'N/A'}</div>
@@ -821,7 +890,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* HTTP Version Card */}
         <div className="card h-[280px] flex flex-col justify-between">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">HTTP Version</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">HTTP Version</span>
+            {renderRefreshButton("http_version", !data.http_version?.http2 && !data.http_version?.http3, side)}
+          </div>
           <div className="space-y-3 py-2 text-xs text-left">
             <div className="flex justify-between items-center">
               <span>HTTP/1.1</span>
@@ -848,7 +920,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Email Security Card */}
         <div className="card h-[280px] flex flex-col justify-between">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Email Security</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Email Security</span>
+            {renderRefreshButton("email_security", !data.email_security?.spf && !data.email_security?.dmarc, side)}
+          </div>
           <div className="space-y-2 py-2 text-xs text-left">
             <div className="flex justify-between items-center">
               <span className="font-mono">SPF:</span>
@@ -886,7 +961,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Social Presence Card */}
         <div className="card h-[280px] flex flex-col justify-between">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Social Presence</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Social Presence</span>
+            {renderRefreshButton("social", !data.social || !Object.values(data.social).some(v => v), side)}
+          </div>
           <div className="grid grid-cols-2 gap-2 py-1 text-xs">
             {[
               { name: 'Twitter', active: data.social?.twitter, color: 'text-sky-400 border-sky-400/40 bg-sky-400/10', link: `https://twitter.com/${data.url?.split('.')[0]}` },
@@ -918,7 +996,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Redirect Chain Card */}
         <div className="card h-[280px] flex flex-col justify-between">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Redirect Chain</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Redirect Chain</span>
+            {renderRefreshButton("redirect_chain", !data.redirect_chain?.hops?.length, side)}
+          </div>
           <div className="flex-1 overflow-y-auto space-y-1.5 py-2 pr-1 font-mono text-[10px] text-left">
             {data.redirect_chain?.hops && data.redirect_chain.hops.length > 0 ? (
               data.redirect_chain.hops.map((h, i) => (
@@ -941,7 +1022,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Trackers Card */}
         <div className="card h-[260px] flex flex-col justify-between">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Trackers</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Trackers</span>
+            {renderRefreshButton("tech_stack", !data.tech_stack?.trackers?.length, side)}
+          </div>
           <div className="text-xs font-semibold py-1 text-left">
             {data.tech_stack?.trackers ? `${data.tech_stack.trackers.length} tracking services found` : '0 trackers detected'}
           </div>
@@ -967,7 +1051,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Fonts Card */}
         <div className="card h-[260px] flex flex-col justify-between">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Fonts</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Fonts</span>
+            {renderRefreshButton("tech_stack", !data.tech_stack?.fonts?.length, side)}
+          </div>
           <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 py-2 text-left">
             {data.tech_stack?.fonts && data.tech_stack.fonts.length > 0 ? (
               data.tech_stack.fonts.map(font => {
@@ -993,7 +1080,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Carbon Card */}
         <div className="card h-[260px] flex flex-col justify-between">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Carbon</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Carbon</span>
+            {renderRefreshButton("carbon", data.carbon?.co2_grams === undefined, side)}
+          </div>
           <div className="py-2 flex items-center justify-between text-left">
             <div>
               <div className="text-3xl font-extrabold" style={{
@@ -1022,7 +1112,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* News Card (full width) */}
         <div className="card md:col-span-3 h-[240px] flex flex-col justify-between">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">News</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">News</span>
+            {renderRefreshButton("news", !data.news?.length, side)}
+          </div>
           <div className="flex-1 flex overflow-x-auto space-x-4 py-3 pr-1 scrollbar-thin">
             {data.news && data.news.length > 0 ? (
               data.news.map((item, idx) => (
@@ -1055,7 +1148,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
         {/* Tabbed DNS Records Card */}
         <div className="card h-[280px] flex flex-col justify-between">
           <div className="flex justify-between items-center border-b border-[var(--border)] pb-2 mb-2">
-            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">DNS Records</span>
+            <div className="flex items-center space-x-2">
+              <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">DNS Records</span>
+              {renderRefreshButton("dns", !data.dns_records || !Object.keys(data.dns_records).length, side)}
+            </div>
             <div className="flex space-x-1">
               {['A', 'AAAA', 'MX', 'TXT', 'NS'].map(tab => (
                 <button
@@ -1087,7 +1183,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Robots.txt Card */}
         <div className="card h-[280px] flex flex-col justify-between overflow-hidden relative">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider mb-1 text-left">Robots.txt</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Robots.txt</span>
+            {renderRefreshButton("robots", !data.robots?.robots_txt, side)}
+          </div>
           <div className="flex-1 overflow-y-auto bg-[var(--bg-primary)] p-2.5 rounded border border-[var(--border)] text-[9px] font-mono leading-relaxed select-all text-left">
             {data.robots?.robots_txt ? (
               data.robots.robots_txt.split('\n').map((line, idx) => {
@@ -1139,7 +1238,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Website Age Card */}
         <div className="card h-[280px] flex flex-col justify-between">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Website Age</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Website Age</span>
+            {renderRefreshButton("wayback", !data.wayback?.first_seen, side)}
+          </div>
           <div className="py-2 text-left">
             <div className="text-3xl font-extrabold text-[var(--text-primary)]">
               {data.wayback?.first_seen || '2024'}
@@ -1174,7 +1276,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Traffic Rank Card */}
         <div className={`card h-[280px] flex flex-col justify-between ${getCardBorder('traffic', side)}`}>
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">Traffic Rank</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Traffic Rank</span>
+            {renderRefreshButton("traffic", !data.traffic?.tranco_rank, side)}
+          </div>
           <div className="py-2 text-left">
             <div className="text-3xl font-extrabold text-[var(--text-primary)]">
               #{data.traffic?.tranco_rank ? data.traffic.tranco_rank.toLocaleString() : '1,000,000+'}
@@ -1202,7 +1307,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* GitHub Card */}
         <div className="card h-[280px] flex flex-col justify-between">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider text-left">GitHub</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">GitHub</span>
+            {renderRefreshButton("github", !data.github?.username, side)}
+          </div>
           {data.github?.username ? (
             <div className="flex-1 flex flex-col justify-between py-2.5">
               <div className="flex items-center space-x-3 text-left">
@@ -1239,7 +1347,10 @@ ${report.tech_stack?.fonts?.join(', ') || 'None detected'}
 
         {/* Color Palette Card */}
         <div className="card h-[280px] flex flex-col justify-between">
-          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider mb-2 text-left">Color Palette</div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Color Palette</span>
+            {renderRefreshButton("screenshot", !colors || !colors.palette || colors.palette.length === 0, side)}
+          </div>
           {colors && colors.palette && colors.palette.length > 0 ? (
             <div className="flex-1 flex flex-col justify-between">
               <div className="grid grid-cols-6 gap-2">
